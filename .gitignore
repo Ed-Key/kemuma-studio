@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+
+# Secrets: Etsy keystring/secret and OAuth tokens live in .env.local, never in git
+.env
+.env.*
+!.env.example
+
+# Local data: catalog db and image store are Ed's inventory, not repo contents
+data/
+*.sqlite
+*.sqlite-*
