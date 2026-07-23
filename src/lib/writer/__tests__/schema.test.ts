@@ -1,0 +1,43 @@
+import { describe, it, expect } from 'vitest'
+import { ListingDraftSchema, validateEtsyRules, type ListingDraft } from '@/lib/writer/schema'
+
+const valid: ListingDraft = {
+  title: 'Vintage Kenyan Soapstone Coaster Set, Hand Carved in the 1990s',
+  description: 'A set of six coasters...',
+  tags: ['soapstone coasters', 'kenyan soapstone', 'kisii stone', 'vintage coasters', 'african decor', 'stone coaster set', 'bar decor', 'housewarming gift', 'handmade coasters', 'drink coasters', 'tabaka carving', 'blue coasters', 'coaster holder'],
+  price_usd: 49,
+  materials: ['soapstone'],
+  colorway_notes: 'blue',
+}
+
+describe('ListingDraftSchema', () => {
+  it('accepts a valid draft', () => {
+    expect(ListingDraftSchema.parse(valid)).toBeTruthy()
+  })
+  it('rejects wrong tag count', () => {
+    expect(() => ListingDraftSchema.parse({ ...valid, tags: valid.tags.slice(0, 5) })).toThrow()
+  })
+})
+
+describe('validateEtsyRules', () => {
+  it('passes a compliant draft', () => {
+    expect(validateEtsyRules(valid)).toEqual([])
+  })
+  it('flags all-caps words in the title', () => {
+    const errs = validateEtsyRules({ ...valid, title: 'VINTAGE Kenyan SOAPSTONE Set' })
+    expect(errs.join(' ')).toMatch(/caps/i)
+  })
+  it('flags titles over 140 chars', () => {
+    expect(validateEtsyRules({ ...valid, title: 'a'.repeat(141) })).not.toEqual([])
+  })
+  it('flags long or uppercase tags', () => {
+    const tags = [...valid.tags]
+    tags[0] = 'this tag is way too long for etsy'
+    tags[1] = 'UpperCase'
+    const errs = validateEtsyRules({ ...valid, tags })
+    expect(errs.length).toBeGreaterThanOrEqual(2)
+  })
+  it('flags non-positive prices', () => {
+    expect(validateEtsyRules({ ...valid, price_usd: 0 })).not.toEqual([])
+  })
+})
