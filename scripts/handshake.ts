@@ -44,7 +44,7 @@ async function main() {
 
   const listing = await gateway.createDraftListing(me.shop_id, {
     quantity: 1,
-    title: 'TEST DO NOT BUY kemuma-studio api handshake',
+    title: 'Test listing, do not buy: kemuma studio api handshake',
     description: 'Temporary draft created by the kemuma-studio handshake script. It deletes itself.',
     price: 999,
     who_made: 'someone_else',
