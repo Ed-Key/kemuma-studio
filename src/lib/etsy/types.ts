@@ -35,4 +35,11 @@ export interface DraftListingInput {
   taxonomy_id: number
   shipping_profile_id: number
   readiness_state_id: number
+  // Required by calculated-shipping profiles; harmless otherwise.
+  item_weight?: number
+  item_weight_unit?: 'oz' | 'lb' | 'g' | 'kg'
+  item_length?: number
+  item_width?: number
+  item_height?: number
+  item_dimensions_unit?: 'in' | 'ft' | 'mm' | 'cm' | 'm' | 'yd'
 }

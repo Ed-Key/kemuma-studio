@@ -29,7 +29,7 @@ export function createEtsyGateway(deps: {
 }): EtsyGateway {
   const fetchFn = deps.fetchFn ?? fetch
 
-  async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, form?: Record<string, string | number>): Promise<T> {
+  async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, form?: Record<string, string | number | undefined>): Promise<T> {
     const token = await deps.getAccessToken()
     const init: RequestInit = {
       method,
@@ -39,7 +39,15 @@ export function createEtsyGateway(deps: {
         ...(form ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       },
       ...(form
-        ? { body: new URLSearchParams(Object.fromEntries(Object.entries(form).map(([k, v]) => [k, String(v)]))).toString() }
+        ? {
+            body: new URLSearchParams(
+              Object.fromEntries(
+                Object.entries(form)
+                  .filter(([, v]) => v !== undefined)
+                  .map(([k, v]) => [k, String(v)])
+              )
+            ).toString(),
+          }
         : {}),
     }
     const res = await fetchFn(`${BASE}${path}`, init)

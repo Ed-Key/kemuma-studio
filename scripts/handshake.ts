@@ -52,6 +52,12 @@ async function main() {
     taxonomy_id: node.id,
     shipping_profile_id: profiles[0].shipping_profile_id,
     readiness_state_id: readiness[0].readiness_state_id,
+    item_weight: 2,
+    item_weight_unit: 'lb',
+    item_length: 5,
+    item_width: 3,
+    item_height: 3,
+    item_dimensions_unit: 'in',
   })
   console.log(`created draft listing ${listing.listing_id} (state: ${listing.state})`)
   console.log('check Etsy Shop Manager > Listings > Drafts if you want to see it, then press Enter within 60s... deleting in 60s regardless')

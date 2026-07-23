@@ -32,6 +32,8 @@ describe('gateway', () => {
       quantity: 1, title: 't', description: 'd', price: 999,
       who_made: 'someone_else', when_made: '1990s', taxonomy_id: 1, shipping_profile_id: 5,
       readiness_state_id: 3,
+      item_weight: 2, item_weight_unit: 'lb',
+      item_length: 5, item_width: 3, item_height: 3, item_dimensions_unit: 'in',
     })
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings')
@@ -41,7 +43,22 @@ describe('gateway', () => {
     expect(body.get('price')).toBe('999')
     expect(body.get('when_made')).toBe('1990s')
     expect(body.get('readiness_state_id')).toBe('3')
+    expect(body.get('item_weight')).toBe('2')
+    expect(body.get('item_dimensions_unit')).toBe('in')
     expect(listing.listing_id).toBe(9)
+  })
+
+  it('omits undefined optional fields from the form body', async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({ listing_id: 9, state: 'draft', title: 't' }))
+    await gatewayWith(fetchFn).createDraftListing(42, {
+      quantity: 1, title: 't', description: 'd', price: 999,
+      who_made: 'someone_else', when_made: '1990s', taxonomy_id: 1, shipping_profile_id: 5,
+      readiness_state_id: 3,
+    })
+    const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    const body = new URLSearchParams(init.body as string)
+    expect(body.has('item_weight')).toBe(false)
+    expect((init.body as string).includes('undefined')).toBe(false)
   })
 
   it('unwraps results arrays for readiness state definitions', async () => {
