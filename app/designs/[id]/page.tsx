@@ -14,6 +14,7 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
       <p><Link href="/designs">← All designs</Link></p>
       <h1>{detail.name}</h1>
       <p>Family: {detail.family}{detail.etsy_listing_id ? ` · Etsy listing ${detail.etsy_listing_id}` : ''}</p>
+      <p><Link href={`/designs/${detail.design_id}/draft`}>Listing draft →</Link></p>
 
       <h2>Pieces</h2>
       {detail.pieces.map((p) => (
