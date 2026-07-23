@@ -1,4 +1,4 @@
-import type { DraftListingInput, Listing, Me, ShippingProfile, TaxonomyNode } from './types'
+import type { DraftListingInput, Listing, Me, ReadinessStateDefinition, ShippingProfile, TaxonomyNode } from './types'
 
 const BASE = 'https://api.etsy.com/v3/application'
 
@@ -15,6 +15,7 @@ export class EtsyApiError extends Error {
 export interface EtsyGateway {
   getMe(): Promise<Me>
   getShippingProfiles(shopId: number): Promise<ShippingProfile[]>
+  getReadinessStateDefinitions(shopId: number): Promise<ReadinessStateDefinition[]>
   getSellerTaxonomyNodes(): Promise<TaxonomyNode[]>
   createDraftListing(shopId: number, draft: DraftListingInput): Promise<Listing>
   deleteListing(listingId: number): Promise<void>
@@ -53,6 +54,11 @@ export function createEtsyGateway(deps: {
 
     getShippingProfiles: async (shopId) => {
       const data = await request<{ results: ShippingProfile[] }>('GET', `/shops/${shopId}/shipping-profiles`)
+      return data.results
+    },
+
+    getReadinessStateDefinitions: async (shopId) => {
+      const data = await request<{ results: ReadinessStateDefinition[] }>('GET', `/shops/${shopId}/readiness-state-definitions`)
       return data.results
     },
 

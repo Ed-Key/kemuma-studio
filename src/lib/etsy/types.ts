@@ -14,6 +14,11 @@ export interface TaxonomyNode {
   children: TaxonomyNode[]
 }
 
+export interface ReadinessStateDefinition {
+  readiness_state_id: number
+  readiness_state: string
+}
+
 export interface Listing {
   listing_id: number
   state: string
@@ -29,4 +34,5 @@ export interface DraftListingInput {
   when_made: string
   taxonomy_id: number
   shipping_profile_id: number
+  readiness_state_id: number
 }

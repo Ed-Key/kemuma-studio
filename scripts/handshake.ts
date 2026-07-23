@@ -30,6 +30,14 @@ async function main() {
   if (profiles.length === 0) throw new Error('no shipping profiles on the shop; create one in Etsy shop settings first')
   console.log(`using shipping profile: ${profiles[0].title} (${profiles[0].shipping_profile_id})`)
 
+  const readiness = await gateway.getReadinessStateDefinitions(me.shop_id)
+  if (readiness.length === 0) {
+    throw new Error(
+      'no readiness state definitions (processing profiles) on the shop; create one in Etsy Shop Manager > Settings > Policy settings (processing time), then rerun'
+    )
+  }
+  console.log(`using readiness state: ${readiness[0].readiness_state} (${readiness[0].readiness_state_id})`)
+
   const taxonomy = await gateway.getSellerTaxonomyNodes()
   const node = findNode(taxonomy, 'sculpture') ?? taxonomy[0]
   console.log(`using taxonomy node: ${node.name} (${node.id})`)
@@ -43,6 +51,7 @@ async function main() {
     when_made: '1990s',
     taxonomy_id: node.id,
     shipping_profile_id: profiles[0].shipping_profile_id,
+    readiness_state_id: readiness[0].readiness_state_id,
   })
   console.log(`created draft listing ${listing.listing_id} (state: ${listing.state})`)
   console.log('check Etsy Shop Manager > Listings > Drafts if you want to see it, then press Enter within 60s... deleting in 60s regardless')

@@ -31,6 +31,7 @@ describe('gateway', () => {
     const listing = await gatewayWith(fetchFn).createDraftListing(42, {
       quantity: 1, title: 't', description: 'd', price: 999,
       who_made: 'someone_else', when_made: '1990s', taxonomy_id: 1, shipping_profile_id: 5,
+      readiness_state_id: 3,
     })
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings')
@@ -39,7 +40,16 @@ describe('gateway', () => {
     expect(body.get('title')).toBe('t')
     expect(body.get('price')).toBe('999')
     expect(body.get('when_made')).toBe('1990s')
+    expect(body.get('readiness_state_id')).toBe('3')
     expect(listing.listing_id).toBe(9)
+  })
+
+  it('unwraps results arrays for readiness state definitions', async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({ count: 1, results: [{ readiness_state_id: 3, readiness_state: 'ready_to_ship' }] }))
+    const defs = await gatewayWith(fetchFn).getReadinessStateDefinitions(42)
+    const [url] = fetchFn.mock.calls[0] as unknown as [string]
+    expect(url).toBe('https://api.etsy.com/v3/application/shops/42/readiness-state-definitions')
+    expect(defs).toEqual([{ readiness_state_id: 3, readiness_state: 'ready_to_ship' }])
   })
 
   it('unwraps results arrays for shipping profiles', async () => {
