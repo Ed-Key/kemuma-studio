@@ -50,5 +50,15 @@ function migrate(db: Db): void {
       type TEXT NOT NULL,
       payload TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS drafts (
+      draft_id INTEGER PRIMARY KEY,
+      design_id INTEGER NOT NULL REFERENCES designs(design_id),
+      status TEXT NOT NULL DEFAULT 'generated'
+        CHECK (status IN ('generated', 'approved')),
+      generated_json TEXT NOT NULL,
+      final_json TEXT,
+      model TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `)
 }
