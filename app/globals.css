@@ -1020,3 +1020,13 @@ p {
   margin-top: 2px;
   accent-color: var(--warn);
 }
+
+/* metal-fx keeps its subtree at opacity 0 and visibility hidden until its first
+   WebGL copy lands. When that copy never arrives (cold loads, a torn-down
+   shared renderer) the primary button inside it vanishes from the page, so the
+   form loses its submit control. The ring is decoration; force the host visible
+   and let the canvas fade in behind the button if and when it renders. */
+.metal-fx-root {
+  opacity: 1 !important;
+  visibility: visible !important;
+}

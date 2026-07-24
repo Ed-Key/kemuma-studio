@@ -13,6 +13,12 @@ import { MetalFx, setSharedPreset } from 'metal-fx'
  * shared renderer is silver regardless of mount timing. `borderRadius={0}`
  * gives the ring square corners to match the rest of the UI. Glow is left on
  * and unclipped so it breathes like the package playground.
+ *
+ * Note: metal-fx keeps its whole subtree at opacity 0 and visibility hidden
+ * until its first WebGL copy lands, and the button is part of that subtree. On
+ * loads where the copy never arrives the primary button disappears from the
+ * page entirely, so globals.css force-shows the root. The ring is decoration
+ * and must never decide whether the control exists.
  */
 export default function MetalButton({ children }: { children: React.ReactNode }) {
   useEffect(() => {
