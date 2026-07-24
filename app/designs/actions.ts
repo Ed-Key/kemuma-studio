@@ -78,3 +78,46 @@ export async function markPublishedAction(_prev: ActionResult | null, formData: 
     return { ok: false, message: 'Could not mark it published.', detail: errText(err) }
   }
 }
+
+// Etsy knows whether a listing is live; the studio should not make Ed remember.
+// Reads the real state for every pushed design and records it.
+export async function syncEtsyStatesAction(): Promise<ActionResult> {
+  try {
+    const db = getCatalogDb()
+    const { designsWithListings, setDesignPublished } = await import('@/lib/catalog/catalog')
+    const { createEtsyGateway } = await import('@/lib/etsy/gateway')
+    const { getValidAccessToken } = await import('@/lib/etsy/tokens')
+    const { etsyConfig } = await import('@/lib/etsy/config')
+    const cfg = etsyConfig()
+    const gateway = createEtsyGateway({
+      keystring: cfg.keystring,
+      sharedSecret: cfg.sharedSecret,
+      getAccessToken: () => getValidAccessToken(fetch, cfg.dataDir, cfg.keystring),
+    })
+
+    const rows = designsWithListings(db)
+    let live = 0
+    const warnings: string[] = []
+    for (const row of rows) {
+      try {
+        const listing = await gateway.getListing(row.etsy_listing_id)
+        const isLive = listing.state === 'active'
+        setDesignPublished(db, row.design_id, isLive)
+        if (isLive) live += 1
+        // Etsy allows 5 requests a second; keep well under it.
+        await new Promise((r) => setTimeout(r, 250))
+      } catch (err) {
+        warnings.push(`${row.name}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+    revalidatePath('/designs')
+    return {
+      ok: true,
+      message: `Synced ${rows.length} listings from Etsy.`,
+      detail: `${live} live, ${rows.length - live} still draft`,
+      warnings,
+    }
+  } catch (err) {
+    return { ok: false, message: 'Could not sync from Etsy.', detail: errText(err) }
+  }
+}

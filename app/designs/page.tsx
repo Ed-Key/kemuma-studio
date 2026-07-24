@@ -5,8 +5,9 @@ import { latestDraftForDesign } from '@/lib/catalog/drafts'
 import { listStagedForDesign } from '@/lib/catalog/staged'
 import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
 import { SHOP_DRAFTS_URL, SHOP_LISTINGS_URL } from '@/lib/etsy/urls'
-import { createDesignAction } from './actions'
+import { createDesignAction, syncEtsyStatesAction } from './actions'
 import PendingSubmit from '../components/PendingSubmit'
+import ActionForm from '../components/ActionForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,6 +102,11 @@ export default function DesignsPage() {
               drafts
             </a>
           </div>
+          <ActionForm action={syncEtsyStatesAction} className="action-row">
+            <PendingSubmit pendingLabel="Asking Etsy..." variant="ghost">
+              Sync from Etsy
+            </PendingSubmit>
+          </ActionForm>
         </div>
       </div>
 

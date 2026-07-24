@@ -35,6 +35,7 @@ export interface EtsyGateway {
   getSellerTaxonomyNodes(): Promise<TaxonomyNode[]>
   getPropertiesByTaxonomyId(taxonomyId: number): Promise<TaxonomyProperty[]>
   updateListingProperty(shopId: number, listingId: number, propertyId: number, input: { values?: string; scale_id?: number; value_ids?: number[] }): Promise<void>
+  getListing(listingId: number): Promise<Listing>
   createDraftListing(shopId: number, draft: DraftListingInput): Promise<Listing>
   deleteListing(listingId: number): Promise<void>
   updateListing(shopId: number, listingId: number, patch: ListingPatch): Promise<void>
@@ -149,6 +150,8 @@ export function createEtsyGateway(deps: {
         ...(input.scale_id != null ? { scale_id: input.scale_id } : {}),
       })
     },
+
+    getListing: (listingId) => request<Listing>('GET', `/listings/${listingId}`),
 
     createDraftListing: (shopId, draft) =>
       request<Listing>('POST', `/shops/${shopId}/listings`, { ...draft }),

@@ -130,6 +130,22 @@ export function markDesignPiecesListed(db: Db, designId: number): void {
 
 // The app never publishes; the owner does that in Shop Manager. This records
 // their word for it so the catalog can stop calling an unpublished draft listed.
+// Etsy is the source of truth for whether a listing is live. Syncing writes
+// what the API reports rather than asking the owner to remember.
+export function setDesignPublished(db: Db, designId: number, published: boolean): void {
+  db.prepare(
+    published
+      ? "UPDATE designs SET published_at = COALESCE(published_at, datetime('now')) WHERE design_id = ?"
+      : 'UPDATE designs SET published_at = NULL WHERE design_id = ?'
+  ).run(designId)
+}
+
+export function designsWithListings(db: Db): Array<{ design_id: number; name: string; etsy_listing_id: number }> {
+  return db
+    .prepare('SELECT design_id, name, etsy_listing_id FROM designs WHERE etsy_listing_id IS NOT NULL ORDER BY design_id')
+    .all() as never
+}
+
 export function markDesignPublished(db: Db, designId: number): void {
   db.prepare("UPDATE designs SET published_at = datetime('now') WHERE design_id = ?").run(designId)
   logEvent(db, 'etsy.published', { design_id: designId })
