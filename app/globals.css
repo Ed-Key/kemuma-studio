@@ -99,7 +99,8 @@ p {
   height: 100vh;
   background: var(--bg);
   border-right: 1px solid var(--border);
-  padding: 24px 16px;
+  /* Extra bottom padding lifts the footer clear of Next's dev-tools badge. */
+  padding: 24px 16px 64px;
   display: flex;
   flex-direction: column;
 }
@@ -418,29 +419,42 @@ p {
   margin-top: 4px;
 }
 
-/* Drop-zone styled file input */
+/* Drop-zone styled file input. The native control is stretched over the whole
+   zone at opacity 0 (still focusable) so the entire dashed area is the target. */
 .drop-zone {
-  display: block;
+  position: relative;
+  display: grid;
+  gap: 6px;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   padding: 28px 20px;
   text-align: center;
-  color: var(--text-2);
+  color: var(--text);
   cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .drop-zone:hover {
   border-color: var(--accent);
-  color: var(--text);
 }
 
-.drop-zone input[type="file"] {
-  display: block;
-  margin: 12px auto 0;
-  max-width: 320px;
+.drop-count {
   color: var(--text-2);
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.drop-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.drop-zone:has(.drop-input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .file-inline input[type="file"] {
@@ -689,8 +703,6 @@ p {
 
 .contestant-desc {
   white-space: pre-wrap;
-  max-height: 300px;
-  overflow-y: auto;
   color: var(--text-2);
   font-size: 13px;
   line-height: 1.55;
