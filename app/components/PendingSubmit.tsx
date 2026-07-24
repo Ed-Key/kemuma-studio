@@ -1,24 +1,29 @@
 'use client'
 
 import { useFormStatus } from 'react-dom'
-import WorkingOrb from './WorkingOrb'
+import { MetalFx } from 'metal-fx'
+import WorkingOrb, { type OrbState } from './WorkingOrb'
 
 type Variant = 'primary' | 'ghost' | 'default'
 
 /**
  * Submit button that swaps in the working orb while its form is pending.
- * `pendingLabel` is the verb-specific status ("Writing listing...", etc.);
- * `children` is the idle button label.
+ * `pendingLabel` is the verb-specific status ("Writing listing...", etc.),
+ * `orbState` picks the matching thinking-orbs animation, `children` is the
+ * idle label. Primary buttons get metal-fx's WebGL sheen (restraint clause:
+ * primary actions only).
  */
 export default function PendingSubmit({
   children,
   pendingLabel,
+  orbState = 'working',
   variant = 'default',
   disabled = false,
   block = false,
 }: {
   children: React.ReactNode
   pendingLabel: string
+  orbState?: OrbState
   variant?: Variant
   disabled?: boolean
   block?: boolean
@@ -29,7 +34,7 @@ export default function PendingSubmit({
     // Shed the button chrome so the orb pill stands on its own.
     return (
       <button type="submit" className="btn-pending" disabled aria-busy="true">
-        <WorkingOrb label={pendingLabel} />
+        <WorkingOrb label={pendingLabel} state={orbState} />
       </button>
     )
   }
@@ -43,9 +48,27 @@ export default function PendingSubmit({
     .filter(Boolean)
     .join(' ')
 
-  return (
+  const button = (
     <button type="submit" className={cls} disabled={disabled}>
       {children}
     </button>
   )
+
+  // Restrained liquid metal on active primary buttons only. The .btn--primary
+  // CSS sheen underneath is the graceful fallback if WebGL is unavailable.
+  if (variant === 'primary' && !disabled) {
+    return (
+      <MetalFx
+        variant="button"
+        preset="silver"
+        theme="dark"
+        strength={0.6}
+        style={{ display: 'inline-flex', borderRadius: 'var(--radius)' }}
+      >
+        {button}
+      </MetalFx>
+    )
+  }
+
+  return button
 }
