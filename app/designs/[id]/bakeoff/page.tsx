@@ -18,11 +18,18 @@ export default async function BakeoffPage({ params }: { params: Promise<{ id: st
   const detail = getDesignDetail(db, Number(id))
   if (!detail) return <main style={{ padding: 40 }}>Design not found.</main>
   const contestants = blindOrder(listLatestDraftPerModel(db, Number(id)).filter((d) => d.status === 'generated'))
+  const photoIds = detail.pieces.flatMap((p) => p.photos.map((ph) => ph.photo_id)).slice(0, 6)
 
   return (
     <main style={{ fontFamily: 'system-ui', padding: 40 }}>
       <p><Link href={`/designs/${detail.design_id}/draft`}>← Draft review</Link></p>
       <h1>Blind bake-off: {detail.name}</h1>
+      <div style={{ display: 'flex', gap: 8, margin: '12px 0', flexWrap: 'wrap' }}>
+        {photoIds.map((pid) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={pid} src={`/api/photos/${pid}`} alt="" style={{ height: 140 }} />
+        ))}
+      </div>
       <p>
         {contestants.length === 0
           ? 'No unapproved drafts to compare. Run: npx tsx scripts/bakeoff.ts ' + detail.design_id
