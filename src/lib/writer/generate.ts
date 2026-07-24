@@ -6,23 +6,33 @@ import { createDraft } from '@/lib/catalog/drafts'
 import { imageToApiBlock } from '@/lib/images/prepare'
 import { ListingDraftSchema, validateEtsyRules, type ListingDraft } from './schema'
 import { buildSystemPrompt, buildUserPrompt } from './prompt'
+import { computeCostUsd } from './prices'
 
 export type ApiImageBlock = Awaited<ReturnType<typeof imageToApiBlock>>
 
+export interface WriterOutput {
+  draft: ListingDraft
+  input_tokens: number
+  output_tokens: number
+}
+
 export interface ListingWriter {
-  write(system: string, user: string, images: ApiImageBlock[]): Promise<ListingDraft>
+  label: string
+  write(system: string, user: string, images: ApiImageBlock[]): Promise<WriterOutput>
 }
 
 export function writerModel(): string {
   return process.env.ANTHROPIC_MODEL ?? 'claude-opus-4-8'
 }
 
-export function createClaudeWriter(): ListingWriter {
+export function createClaudeWriter(model?: string): ListingWriter {
   const client = new Anthropic()
+  const resolved = model ?? writerModel()
   return {
+    label: resolved,
     async write(system, user, images) {
       const response = await client.messages.parse({
-        model: writerModel(),
+        model: resolved,
         max_tokens: 16000,
         thinking: { type: 'adaptive' },
         system,
@@ -32,7 +42,11 @@ export function createClaudeWriter(): ListingWriter {
       if (!response.parsed_output) {
         throw new Error(`writer returned no parsed output (stop_reason: ${response.stop_reason})`)
       }
-      return response.parsed_output
+      return {
+        draft: response.parsed_output,
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
+      }
     },
   }
 }
@@ -69,14 +83,26 @@ export async function generateDraft(
   const system = buildSystemPrompt()
   const user = buildUserPrompt(detail)
 
-  let draft = await writer.write(system, user, images)
-  let errors = validateEtsyRules(draft)
+  let totalIn = 0
+  let totalOut = 0
+  let out = await writer.write(system, user, images)
+  totalIn += out.input_tokens
+  totalOut += out.output_tokens
+  let errors = validateEtsyRules(out.draft)
   if (errors.length > 0) {
     const feedback = `${user}\n\nYour previous draft violated these Etsy rules; fix them:\n- ${errors.join('\n- ')}`
-    draft = await writer.write(system, feedback, images)
-    errors = validateEtsyRules(draft)
+    out = await writer.write(system, feedback, images)
+    totalIn += out.input_tokens
+    totalOut += out.output_tokens
+    errors = validateEtsyRules(out.draft)
     if (errors.length > 0) throw new Error(`draft failed validation after retry: ${errors.join('; ')}`)
   }
 
-  return createDraft(db, { design_id: designId, generated_json: JSON.stringify(draft), model: writerModel() })
+  return createDraft(db, {
+    design_id: designId,
+    generated_json: JSON.stringify(out.draft),
+    model: writer.label,
+    usage_json: JSON.stringify({ input_tokens: totalIn, output_tokens: totalOut }),
+    cost_usd: computeCostUsd(writer.label, totalIn, totalOut),
+  })
 }

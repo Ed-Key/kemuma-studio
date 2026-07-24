@@ -61,4 +61,9 @@ function migrate(db: Db): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `)
+  const draftCols = (db.prepare('PRAGMA table_info(drafts)').all() as Array<{ name: string }>).map((c) => c.name)
+  if (!draftCols.includes('usage_json')) {
+    db.exec('ALTER TABLE drafts ADD COLUMN usage_json TEXT')
+    db.exec('ALTER TABLE drafts ADD COLUMN cost_usd REAL')
+  }
 }

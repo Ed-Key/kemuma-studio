@@ -27,7 +27,7 @@ function setup() {
 describe('generateDraft', () => {
   it('stores a validated draft', async () => {
     const { db, designId } = setup()
-    const writer: ListingWriter = { write: async () => good }
+    const writer: ListingWriter = { label: 'fake-model', write: async () => ({ draft: good, input_tokens: 10, output_tokens: 5 }) }
     const draftId = await generateDraft(db, writer, designId)
     const latest = latestDraftForDesign(db, designId)
     expect(latest?.draft_id).toBe(draftId)
@@ -38,9 +38,11 @@ describe('generateDraft', () => {
     const { db, designId } = setup()
     const calls: string[] = []
     const writer: ListingWriter = {
+      label: 'fake-model',
       write: async (_s, user) => {
         calls.push(user)
-        return calls.length === 1 ? { ...good, title: 'ALL CAPS BAD TITLE' } : good
+        const draft = calls.length === 1 ? { ...good, title: 'ALL CAPS BAD TITLE' } : good
+        return { draft, input_tokens: 10, output_tokens: 5 }
       },
     }
     await generateDraft(db, writer, designId)
@@ -50,7 +52,24 @@ describe('generateDraft', () => {
 
   it('throws when the retry also fails', async () => {
     const { db, designId } = setup()
-    const writer: ListingWriter = { write: async () => ({ ...good, title: 'STILL ALL CAPS' }) }
+    const writer: ListingWriter = { label: 'fake-model', write: async () => ({ draft: { ...good, title: 'STILL ALL CAPS' }, input_tokens: 10, output_tokens: 5 }) }
     await expect(generateDraft(db, writer, designId)).rejects.toThrow(/validation/i)
+  })
+
+  it('stores summed usage across the retry', async () => {
+    const { db, designId } = setup()
+    let n = 0
+    const writer: ListingWriter = {
+      label: 'fake-model',
+      write: async () => {
+        n += 1
+        const draft = n === 1 ? { ...good, title: 'ALL CAPS AGAIN HERE' } : good
+        return { draft, input_tokens: 100, output_tokens: 50 }
+      },
+    }
+    await generateDraft(db, writer, designId)
+    const latest = latestDraftForDesign(db, designId)!
+    expect(JSON.parse(latest.usage_json!)).toEqual({ input_tokens: 200, output_tokens: 100 })
+    expect(latest.model).toBe('fake-model')
   })
 })
