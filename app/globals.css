@@ -310,32 +310,60 @@ p {
   opacity: 0.75;
 }
 
-/* Restrained liquid-metal sheen: a gray gradient with a faintly warm crest
-   that sweeps across on hover. No shadows, no animated chrome. */
+/* Liquid silver: a cool brushed-steel face with a specular highlight that
+   drifts across it. Full-surface (not a rim), dark ink for contrast. The top
+   sheen + bottom shade layer is static; the steel layer animates its position.
+   Hand-rolled CSS so it is always silver, never a rainbow, and never bleeds. */
 .btn--primary {
-  border-color: #34343a;
-  color: var(--text);
-  background-image: linear-gradient(
-    120deg,
-    #1e1e22 0%,
-    #2b2b30 34%,
-    #3a3934 50%,
-    #2b2b30 66%,
-    #1e1e22 100%
-  );
-  background-size: 220% 100%;
-  background-position: 100% 0;
-  transition: background-position 0.55s ease, border-color 0.2s ease;
+  color: #101013;
+  border-color: #9a9ea6;
+  background-color: #8b8f97;
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(255, 255, 255, 0) 46%,
+      rgba(0, 0, 0, 0.22) 100%
+    ),
+    linear-gradient(
+      100deg,
+      #6d707880 0%,
+      #9fa3ab 26%,
+      #eceef1 46%,
+      #a6aab2 66%,
+      #74777f 100%
+    );
+  background-size: 100% 100%, 260% 100%;
+  background-position: 0 0, 0% 0;
+  background-repeat: no-repeat;
+  animation: silver-drift 7s linear infinite;
+  transition: filter 0.2s ease, border-color 0.2s ease;
+}
+
+@keyframes silver-drift {
+  from {
+    background-position: 0 0, 0% 0;
+  }
+  to {
+    background-position: 0 0, 100% 0;
+  }
 }
 
 .btn--primary:hover {
-  background-position: 0 0;
-  border-color: #45443f;
+  filter: brightness(1.07);
+  border-color: #c4c8d0;
 }
 
-.btn--primary:disabled:hover {
-  background-position: 100% 0;
-  border-color: #34343a;
+.btn--primary:disabled {
+  animation: none;
+  filter: saturate(0.4) brightness(0.72);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn--primary {
+    animation: none;
+    background-position: 0 0, 50% 0;
+  }
 }
 
 .btn--ghost {
