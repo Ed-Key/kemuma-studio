@@ -48,6 +48,7 @@ export default async function BakeoffPage({ params }: { params: Promise<{ id: st
                 ${draft.price_usd}
                 {d.cost_usd != null && ` · generation cost $${d.cost_usd.toFixed(3)}`}
               </p>
+              {draft.price_justification && <p style={{ fontStyle: 'italic' }}>Why this price: {draft.price_justification}</p>}
               <form action={chooseWinnerAction}>
                 <input type="hidden" name="design_id" value={detail.design_id} />
                 <input type="hidden" name="draft_id" value={d.draft_id} />

@@ -10,10 +10,11 @@ const LISTING_JSON_SCHEMA = {
     description: { type: 'string' },
     tags: { type: 'array', items: { type: 'string' }, minItems: 13, maxItems: 13 },
     price_usd: { type: 'number' },
+    price_justification: { type: 'string' },
     materials: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 13 },
     colorway_notes: { type: 'string' },
   },
-  required: ['title', 'description', 'tags', 'price_usd', 'materials', 'colorway_notes'],
+  required: ['title', 'description', 'tags', 'price_usd', 'price_justification', 'materials', 'colorway_notes'],
   additionalProperties: false,
 } as const
 

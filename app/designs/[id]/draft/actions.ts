@@ -22,6 +22,7 @@ export async function approveDraftAction(formData: FormData) {
     description: String(formData.get('description') ?? ''),
     tags: Array.from({ length: 13 }, (_, i) => String(formData.get(`tag_${i}`) ?? '').trim()),
     price_usd: Number(formData.get('price_usd')),
+    price_justification: String(formData.get('price_justification') ?? ''),
     materials: String(formData.get('materials') ?? '')
       .split(',')
       .map((m) => m.trim())

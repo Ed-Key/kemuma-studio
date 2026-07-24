@@ -5,6 +5,7 @@ export const ListingDraftSchema = z.object({
   description: z.string(),
   tags: z.array(z.string()).length(13),
   price_usd: z.number(),
+  price_justification: z.string(),
   materials: z.array(z.string()).min(1).max(13),
   colorway_notes: z.string(),
 })

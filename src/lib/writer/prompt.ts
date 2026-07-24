@@ -46,6 +46,10 @@ export interface CatalogPriceRef {
   name: string
   family: string
   price_usd: number
+  height_in: number | null
+  width_in: number | null
+  depth_in: number | null
+  weight_lb: number | null
 }
 
 export function buildUserPrompt(input: WriterDesignInput, catalogPrices: CatalogPriceRef[] = []): string {
@@ -59,9 +63,16 @@ export function buildUserPrompt(input: WriterDesignInput, catalogPrices: Catalog
     catalogPrices.length > 0
       ? [
           '',
-          'Current approved catalog prices, for pricing coherence (products of the same family and',
-          'size should carry the same price unless this piece clearly justifies a difference):',
-          ...catalogPrices.map((p) => `- ${p.name} (${p.family}): $${p.price_usd}`),
+          'Approved catalog listings, with their attributes, for pricing comparison:',
+          ...catalogPrices.map((p) => {
+            const dims =
+              p.height_in != null ? `, ${p.height_in}"H x ${p.width_in}"W x ${p.depth_in}"D, ${p.weight_lb} lb` : ''
+            return `- ${p.name} (${p.family}${dims}): $${p.price_usd}`
+          }),
+          'Pricing rules: find the most similar items above (same family, similar size and weight,',
+          'similar workmanship) and price consistently with them. In price_justification, name the',
+          'comparable(s) you matched; if your price differs from theirs, state exactly why this piece',
+          'earns more or less. Never leave a price unexplained.',
         ].join('\n')
       : ''
   return [

@@ -57,10 +57,15 @@ export function createClaudeWriter(model?: string): ListingWriter {
 export function loadCatalogPriceContext(db: Db, excludeDesignId: number): CatalogPriceRef[] {
   return db
     .prepare(`
-      SELECT ds.name, ds.family, CAST(json_extract(d.final_json, '$.price_usd') AS REAL) AS price_usd
+      SELECT ds.name, ds.family,
+             CAST(json_extract(d.final_json, '$.price_usd') AS REAL) AS price_usd,
+             MAX(p.height_in) AS height_in, MAX(p.width_in) AS width_in,
+             MAX(p.depth_in) AS depth_in, MAX(p.weight_lb) AS weight_lb
       FROM drafts d
       JOIN designs ds ON ds.design_id = d.design_id
+      LEFT JOIN pieces p ON p.design_id = ds.design_id
       WHERE d.status = 'approved' AND d.final_json IS NOT NULL AND d.design_id != ?
+      GROUP BY d.draft_id
       ORDER BY ds.family, ds.name
     `)
     .all(excludeDesignId) as CatalogPriceRef[]

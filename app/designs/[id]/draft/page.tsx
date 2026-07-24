@@ -54,6 +54,9 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
               <label>Price (USD)
                 <input name="price_usd" type="number" step="1" defaultValue={draft.price_usd} />
               </label>
+              <label>Price justification (internal, not sent to Etsy)
+                <input name="price_justification" defaultValue={draft.price_justification ?? ''} style={{ width: '100%' }} />
+              </label>
               <label>Materials (comma separated)
                 <input name="materials" defaultValue={draft.materials.join(', ')} style={{ width: '100%' }} />
               </label>

@@ -6,6 +6,7 @@ const valid: ListingDraft = {
   description: 'A set of six coasters...',
   tags: ['soapstone coasters', 'kenyan soapstone', 'kisii stone', 'vintage coasters', 'african decor', 'stone coaster set', 'bar decor', 'housewarming gift', 'handmade coasters', 'drink coasters', 'tabaka carving', 'blue coasters', 'coaster holder'],
   price_usd: 49,
+  price_justification: 'matches the family price',
   materials: ['soapstone'],
   colorway_notes: 'blue',
 }

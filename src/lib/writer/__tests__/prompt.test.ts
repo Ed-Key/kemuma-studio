@@ -32,9 +32,9 @@ describe('catalog price context', () => {
         notes: null,
         pieces: [{ colorway: 'tan gold', height_in: 3, width_in: 4.5, depth_in: 4.5, weight_lb: 7, quantity: 1 }],
       },
-      [{ name: 'Etched Coaster Set (Blue)', family: 'coaster set', price_usd: 55 }]
+      [{ name: 'Etched Coaster Set (Blue)', family: 'coaster set', price_usd: 55, height_in: 3, width_in: 4.5, depth_in: 4.5, weight_lb: 7 }]
     )
-    expect(u).toMatch(/pricing coherence/)
-    expect(u).toMatch(/Etched Coaster Set \(Blue\) \(coaster set\): \$55/)
+    expect(u).toMatch(/pricing comparison/)
+    expect(u).toMatch(/Etched Coaster Set \(Blue\) \(coaster set, 3"H x 4.5"W x 4.5"D, 7 lb\): \$55/)
   })
 })
