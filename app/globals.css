@@ -253,8 +253,8 @@ p {
   content: "";
   width: 6px;
   height: 6px;
-  /* Square status swatch to match the fully-square chips. */
-  border-radius: 0;
+  /* Ed's call: status indicator stays a circular dot inside square chips. */
+  border-radius: 50%;
   background: currentColor;
   opacity: 0.9;
 }
