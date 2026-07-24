@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeModelStats, renderMarkdown } from '@/lib/evals/stats'
+import { computeModelStats, renderMarkdown, computeMatchStats, renderMatchMarkdown } from '@/lib/evals/stats'
 
 const gen = (price: number) =>
   JSON.stringify({ title: 't', description: 'd', tags: ['a'], price_usd: price, materials: ['m'], colorway_notes: 'c' })
@@ -39,5 +39,27 @@ describe('renderMarkdown', () => {
     )
     expect(md).toMatch(/\| model \|/)
     expect(md).toMatch(/\| opus \|/)
+  })
+})
+
+describe('computeMatchStats', () => {
+  it('counts verdicts from match.confirmed payloads', () => {
+    const events = ['correct-merge', 'correct-merge', 'false-merge', 'correct-new', 'abstain-resolved'].map((verdict) => ({
+      payload: JSON.stringify({ verdict }),
+    }))
+    const stats = computeMatchStats(events)
+    expect(stats.total).toBe(5)
+    expect(stats.correctMerge).toBe(2)
+    expect(stats.falseMerge).toBe(1)
+    expect(stats.correctNew).toBe(1)
+    expect(stats.abstainResolved).toBe(1)
+    expect(stats.falseSplit).toBe(0)
+  })
+})
+
+describe('renderMatchMarkdown', () => {
+  it('renders the confusion summary', () => {
+    const md = renderMatchMarkdown(computeMatchStats([{ payload: JSON.stringify({ verdict: 'correct-merge' }) }]))
+    expect(md).toMatch(/correct merges/i)
   })
 })

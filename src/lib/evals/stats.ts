@@ -67,3 +67,36 @@ export function renderMarkdown(stats: ModelStats[]): string {
   }
   return lines.join('\n')
 }
+
+export interface MatchStats {
+  total: number
+  correctMerge: number
+  falseMerge: number
+  correctNew: number
+  falseSplit: number
+  abstainResolved: number
+}
+
+export function computeMatchStats(confirmedEvents: Array<{ payload: string }>): MatchStats {
+  const stats: MatchStats = { total: 0, correctMerge: 0, falseMerge: 0, correctNew: 0, falseSplit: 0, abstainResolved: 0 }
+  for (const e of confirmedEvents) {
+    const verdict = (JSON.parse(e.payload) as { verdict?: string }).verdict
+    stats.total += 1
+    if (verdict === 'correct-merge') stats.correctMerge += 1
+    else if (verdict === 'false-merge') stats.falseMerge += 1
+    else if (verdict === 'correct-new') stats.correctNew += 1
+    else if (verdict === 'false-split') stats.falseSplit += 1
+    else if (verdict === 'abstain-resolved') stats.abstainResolved += 1
+  }
+  return stats
+}
+
+export function renderMatchMarkdown(s: MatchStats): string {
+  if (s.total === 0) return '_No intake confirmations yet._'
+  return [
+    `- intakes confirmed: ${s.total}`,
+    `- correct merges: ${s.correctMerge} · false merges: ${s.falseMerge}`,
+    `- correct new-design calls: ${s.correctNew} · false splits: ${s.falseSplit}`,
+    `- abstained (resolved by Ed): ${s.abstainResolved}`,
+  ].join('\n')
+}
