@@ -3,6 +3,7 @@ import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { listLatestDraftPerModel } from '@/lib/catalog/drafts'
 import { chooseWinnerAction } from './actions'
+import PendingSubmit from '../../../components/PendingSubmit'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,48 +17,70 @@ export default async function BakeoffPage({ params }: { params: Promise<{ id: st
   const { id } = await params
   const db = getCatalogDb()
   const detail = getDesignDetail(db, Number(id))
-  if (!detail) return <main style={{ padding: 40 }}>Design not found.</main>
-  const contestants = blindOrder(listLatestDraftPerModel(db, Number(id)).filter((d) => d.status === 'generated'))
+  if (!detail) return <p className="empty">Design not found.</p>
+  const contestants = blindOrder(
+    listLatestDraftPerModel(db, Number(id)).filter((d) => d.status === 'generated')
+  )
   const photoIds = detail.pieces.flatMap((p) => p.photos.map((ph) => ph.photo_id)).slice(0, 6)
 
   return (
-    <main style={{ fontFamily: 'system-ui', padding: 40 }}>
-      <p><Link href={`/designs/${detail.design_id}/draft`}>← Draft review</Link></p>
-      <h1>Blind bake-off: {detail.name}</h1>
-      <div style={{ display: 'flex', gap: 8, margin: '12px 0', flexWrap: 'wrap' }}>
-        {photoIds.map((pid) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={pid} src={`/api/photos/${pid}`} alt="" style={{ height: 140 }} />
-        ))}
+    <div>
+      <Link href={`/designs/${detail.design_id}/draft`} className="backlink">
+        Draft review
+      </Link>
+      <div className="page-head">
+        <h1>Blind bake-off</h1>
+        <p className="eyebrow">
+          {detail.name} ·{' '}
+          {contestants.length === 0
+            ? `no unapproved drafts to compare. Run: npx tsx scripts/bakeoff.ts ${detail.design_id}`
+            : 'model names are hidden until you choose. Judge the copy.'}
+        </p>
       </div>
-      <p>
-        {contestants.length === 0
-          ? 'No unapproved drafts to compare. Run: npx tsx scripts/bakeoff.ts ' + detail.design_id
-          : 'Model names are hidden until you choose. Judge the copy.'}
-      </p>
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        {contestants.map((d, i) => {
-          const draft = JSON.parse(d.generated_json)
-          return (
-            <div key={d.draft_id} style={{ border: '1px solid #999', padding: 16, width: 380 }}>
-              <h2>Contestant {String.fromCharCode(65 + i)}</h2>
-              <p><strong>{draft.title}</strong></p>
-              <p style={{ whiteSpace: 'pre-wrap', maxHeight: 320, overflowY: 'auto' }}>{draft.description}</p>
-              <p>{draft.tags.join(' · ')}</p>
-              <p>
-                ${draft.price_usd}
-                {d.cost_usd != null && ` · generation cost $${d.cost_usd.toFixed(3)}`}
-              </p>
-              {draft.price_justification && <p style={{ fontStyle: 'italic' }}>Why this price: {draft.price_justification}</p>}
-              <form action={chooseWinnerAction}>
-                <input type="hidden" name="design_id" value={detail.design_id} />
-                <input type="hidden" name="draft_id" value={d.draft_id} />
-                <button type="submit">Choose {String.fromCharCode(65 + i)}</button>
-              </form>
-            </div>
-          )
-        })}
-      </div>
-    </main>
+
+      {contestants.length === 0 ? (
+        <p className="empty">Nothing to compare yet.</p>
+      ) : (
+        <div className="bakeoff-row">
+          {contestants.map((d, i) => {
+            const draft = JSON.parse(d.generated_json)
+            const label = String.fromCharCode(65 + i)
+            return (
+              <div key={d.draft_id} className="card stack-sm">
+                <div className="photo-strip">
+                  {photoIds.map((pid) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={pid}
+                      className="strip-photo"
+                      src={`/api/photos/${pid}`}
+                      alt={`${detail.name}, ${detail.family}`}
+                    />
+                  ))}
+                </div>
+                <div className="contestant-label">Contestant {label}</div>
+                <h2>{draft.title}</h2>
+                <p className="contestant-desc">{draft.description}</p>
+                <p className="tag-list">{draft.tags.join(' · ')}</p>
+                <p className="mono">
+                  ${draft.price_usd}
+                  {d.cost_usd != null ? ` · gen cost $${d.cost_usd.toFixed(3)}` : ''}
+                </p>
+                {draft.price_justification && (
+                  <p className="price-why">Why this price: {draft.price_justification}</p>
+                )}
+                <form action={chooseWinnerAction} className="action-row">
+                  <input type="hidden" name="design_id" value={detail.design_id} />
+                  <input type="hidden" name="draft_id" value={d.draft_id} />
+                  <PendingSubmit pendingLabel="Selecting winner..." orbState="working" variant="primary">
+                    Choose {label}
+                  </PendingSubmit>
+                </form>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
