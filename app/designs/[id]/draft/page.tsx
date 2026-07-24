@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { latestDraftForDesign } from '@/lib/catalog/drafts'
-import { generateDraftAction, approveDraftAction } from './actions'
+import { generateDraftAction, approveDraftAction, pushToEtsyAction } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,34 +34,54 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
         </form>
 
         {draft && record && (
-          <form action={approveDraftAction} style={{ display: 'grid', gap: 10, marginTop: 20 }}>
-            <input type="hidden" name="design_id" value={detail.design_id} />
-            <input type="hidden" name="draft_id" value={record.draft_id} />
-            <label>Title ({draft.title.length}/140)
-              <input name="title" defaultValue={draft.title} style={{ width: '100%' }} />
-            </label>
-            <label>Description
-              <textarea name="description" defaultValue={draft.description} rows={14} style={{ width: '100%' }} />
-            </label>
-            <fieldset style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-              <legend>Tags (13)</legend>
-              {draft.tags.map((t: string, i: number) => (
-                <input key={i} name={`tag_${i}`} defaultValue={t} />
-              ))}
-            </fieldset>
-            <label>Price (USD)
-              <input name="price_usd" type="number" step="1" defaultValue={draft.price_usd} />
-            </label>
-            <label>Materials (comma separated)
-              <input name="materials" defaultValue={draft.materials.join(', ')} style={{ width: '100%' }} />
-            </label>
-            <label>Colorway notes
-              <input name="colorway_notes" defaultValue={draft.colorway_notes} style={{ width: '100%' }} />
-            </label>
-            <button type="submit" disabled={record.status === 'approved'}>
-              {record.status === 'approved' ? 'Approved' : 'Approve'}
-            </button>
-          </form>
+          <>
+            <form action={approveDraftAction} style={{ display: 'grid', gap: 10, marginTop: 20 }}>
+              <input type="hidden" name="design_id" value={detail.design_id} />
+              <input type="hidden" name="draft_id" value={record.draft_id} />
+              <label>Title ({draft.title.length}/140)
+                <input name="title" defaultValue={draft.title} style={{ width: '100%' }} />
+              </label>
+              <label>Description
+                <textarea name="description" defaultValue={draft.description} rows={14} style={{ width: '100%' }} />
+              </label>
+              <fieldset style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                <legend>Tags (13)</legend>
+                {draft.tags.map((t: string, i: number) => (
+                  <input key={i} name={`tag_${i}`} defaultValue={t} />
+                ))}
+              </fieldset>
+              <label>Price (USD)
+                <input name="price_usd" type="number" step="1" defaultValue={draft.price_usd} />
+              </label>
+              <label>Materials (comma separated)
+                <input name="materials" defaultValue={draft.materials.join(', ')} style={{ width: '100%' }} />
+              </label>
+              <label>Colorway notes
+                <input name="colorway_notes" defaultValue={draft.colorway_notes} style={{ width: '100%' }} />
+              </label>
+              <button type="submit" disabled={record.status === 'approved'}>
+                {record.status === 'approved' ? 'Approved' : 'Approve'}
+              </button>
+            </form>
+            {record.status === 'approved' && (
+              <div style={{ marginTop: 20, borderTop: '1px solid #ccc', paddingTop: 12 }}>
+                {detail.etsy_listing_id ? (
+                  <p>
+                    On Etsy as draft listing {detail.etsy_listing_id}.{' '}
+                    <a href={`https://www.etsy.com/your/shops/me/tools/listings/state:draft`} target="_blank">
+                      Open drafts in Shop Manager
+                    </a>
+                  </p>
+                ) : (
+                  <p>Not yet on Etsy.</p>
+                )}
+                <form action={pushToEtsyAction}>
+                  <input type="hidden" name="design_id" value={detail.design_id} />
+                  <button type="submit">{detail.etsy_listing_id ? 'Re-push updates to Etsy' : 'Push to Etsy as draft'}</button>
+                </form>
+              </div>
+            )}
+          </>
         )}
       </div>
     </main>

@@ -41,3 +41,20 @@ export async function approveDraftAction(formData: FormData) {
   approveDraft(db, { draft_id: draftId, final_json: JSON.stringify(final), edited_fields: editedFields })
   revalidatePath(`/designs/${designId}/draft`)
 }
+
+export async function pushToEtsyAction(formData: FormData) {
+  const designId = Number(formData.get('design_id'))
+  const { createEtsyGateway } = await import('@/lib/etsy/gateway')
+  const { getValidAccessToken } = await import('@/lib/etsy/tokens')
+  const { etsyConfig } = await import('@/lib/etsy/config')
+  const { pushDraftToEtsy } = await import('@/lib/etsy/push')
+  const { dataDir } = await import('@/lib/catalog/instance')
+  const cfg = etsyConfig()
+  const gateway = createEtsyGateway({
+    keystring: cfg.keystring,
+    sharedSecret: cfg.sharedSecret,
+    getAccessToken: () => getValidAccessToken(fetch, cfg.dataDir, cfg.keystring),
+  })
+  await pushDraftToEtsy(getCatalogDb(), gateway, designId, dataDir())
+  revalidatePath(`/designs/${designId}/draft`)
+}
