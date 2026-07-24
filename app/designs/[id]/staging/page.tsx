@@ -18,6 +18,7 @@ import {
   executePlanAction,
   discardPlanAction,
   attachCardToEtsyAction,
+  attachSceneToEtsyAction,
 } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -265,7 +266,29 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                   {s.cost_usd != null ? ` · $${s.cost_usd.toFixed(3)}` : ''}
                 </div>
                 {s.status === 'approved' && (
-                  <span className="pill pill--ok">{DESTINATION_LABELS[s.destination ?? ''] ?? s.destination}</span>
+                  <div className="stack-sm">
+                    <span className="pill pill--ok">{DESTINATION_LABELS[s.destination ?? ''] ?? s.destination}</span>
+                    {s.etsy_uploaded_at ? (
+                      <span className="pill pill--accent">On the Etsy listing</span>
+                    ) : detail.etsy_listing_id ? (
+                      <ActionForm action={attachSceneToEtsyAction} className="stack-sm">
+                        <input type="hidden" name="design_id" value={detail.design_id} />
+                        <input type="hidden" name="staged_id" value={s.staged_id} />
+                        <label className="ack-row">
+                          <input type="checkbox" name="acknowledge" required />
+                          <span>
+                            I understand Etsy requires real photos in listing galleries; attaching an
+                            AI-staged scene is at my own risk.
+                          </span>
+                        </label>
+                        <div className="action-row">
+                          <PendingSubmit pendingLabel="Adding to listing..." orbState="working" variant="ghost">
+                            Add to Etsy listing
+                          </PendingSubmit>
+                        </div>
+                      </ActionForm>
+                    ) : null}
+                  </div>
                 )}
                 {s.status === 'rejected' && <span className="pill pill--danger">rejected</span>}
                 {s.status === 'candidate' && (

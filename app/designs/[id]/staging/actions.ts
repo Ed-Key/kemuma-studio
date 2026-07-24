@@ -150,6 +150,43 @@ export async function attachCardToEtsyAction(_prev: ActionResult | null, formDat
   }
 }
 
+export async function attachSceneToEtsyAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const stagedId = Number(formData.get('staged_id'))
+    if (formData.get('acknowledge') !== 'on') throw new Error('check the acknowledgment first')
+    const db = getCatalogDb()
+
+    const { getStagedImage, markStagedUploaded } = await import('@/lib/catalog/staged')
+    const { getDesignDetail } = await import('@/lib/catalog/catalog')
+    const scene = getStagedImage(db, stagedId)
+    if (!scene || scene.design_id !== designId) throw new Error('scene not found for this design')
+    if (scene.status !== 'approved') throw new Error('approve the scene first')
+    if (scene.etsy_uploaded_at) throw new Error('scene is already on the listing')
+    const detail = getDesignDetail(db, designId)
+    if (!detail?.etsy_listing_id) throw new Error('push the listing to Etsy first')
+
+    const sharp = (await import('sharp')).default
+    const jpeg = await sharp(scene.file_path).jpeg({ quality: 92 }).toBuffer()
+    const { createEtsyGateway } = await import('@/lib/etsy/gateway')
+    const { getValidAccessToken } = await import('@/lib/etsy/tokens')
+    const { etsyConfig } = await import('@/lib/etsy/config')
+    const cfg = etsyConfig()
+    const gateway = createEtsyGateway({
+      keystring: cfg.keystring,
+      sharedSecret: cfg.sharedSecret,
+      getAccessToken: () => getValidAccessToken(fetch, cfg.dataDir, cfg.keystring),
+    })
+    const me = await gateway.getMe()
+    await gateway.uploadListingImage(me.shop_id, detail.etsy_listing_id, jpeg, 'staged-scene.jpg', 10)
+    markStagedUploaded(db, stagedId)
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: 'Scene added to the Etsy listing gallery.', detail: `listing ${detail.etsy_listing_id}` }
+  } catch (err) {
+    return { ok: false, message: 'Could not add the scene to the listing.', detail: errText(err) }
+  }
+}
+
 export async function chatTurnAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const designId = Number(formData.get('design_id'))

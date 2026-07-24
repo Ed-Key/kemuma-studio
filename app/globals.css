@@ -989,3 +989,17 @@ p {
   color: var(--text-2);
   font-size: 14px;
 }
+
+.ack-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--warn);
+  font-size: 12px;
+  max-width: 420px;
+  cursor: pointer;
+}
+.ack-row input {
+  margin-top: 2px;
+  accent-color: var(--warn);
+}
