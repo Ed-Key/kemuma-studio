@@ -30,6 +30,8 @@ export interface DraftListingInput {
   title: string
   description: string
   price: number
+  tags?: string
+  materials?: string
   who_made: 'i_did' | 'someone_else' | 'collective'
   when_made: string
   taxonomy_id: number
