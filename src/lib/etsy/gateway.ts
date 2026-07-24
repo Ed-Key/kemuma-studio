@@ -13,6 +13,7 @@ export interface TaxonomyProperty {
   property_id: number
   name: string
   scales: Array<{ scale_id: number; display_name: string }>
+  possible_values?: Array<{ value_id: number; name: string }>
 }
 
 const BASE = 'https://api.etsy.com/v3/application'
@@ -33,7 +34,7 @@ export interface EtsyGateway {
   getReadinessStateDefinitions(shopId: number): Promise<ReadinessStateDefinition[]>
   getSellerTaxonomyNodes(): Promise<TaxonomyNode[]>
   getPropertiesByTaxonomyId(taxonomyId: number): Promise<TaxonomyProperty[]>
-  updateListingProperty(shopId: number, listingId: number, propertyId: number, input: { values: string; scale_id?: number }): Promise<void>
+  updateListingProperty(shopId: number, listingId: number, propertyId: number, input: { values?: string; scale_id?: number; value_ids?: number[] }): Promise<void>
   createDraftListing(shopId: number, draft: DraftListingInput): Promise<Listing>
   deleteListing(listingId: number): Promise<void>
   updateListing(shopId: number, listingId: number, patch: ListingPatch): Promise<void>
@@ -133,6 +134,7 @@ export function createEtsyGateway(deps: {
         property_id: p.property_id,
         name: p.name,
         scales: (p.scales ?? []).map((s) => ({ scale_id: s.scale_id, display_name: s.display_name })),
+        possible_values: p.possible_values ?? [],
       }))
     },
 
@@ -140,6 +142,7 @@ export function createEtsyGateway(deps: {
       await request<void>('PUT', `/shops/${shopId}/listings/${listingId}/properties/${propertyId}`, {
         values: input.values,
         scale_id: input.scale_id,
+        value_ids: input.value_ids?.join(','),
       })
     },
 

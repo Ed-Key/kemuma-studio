@@ -14,6 +14,7 @@ import type { EtsyGateway } from './gateway'
 import { EtsyApiError } from './gateway'
 import type { InventoryBody } from './types'
 import { pickTaxonomyNode } from './taxonomy'
+import { vocabForFamily } from './attribute-vocab'
 
 export interface PushResult {
   listing_id: number
@@ -143,34 +144,59 @@ export async function pushDraftToEtsy(
     warnings.push('update mode: images not re-pushed')
   }
 
-  // Etsy's listing-page Highlights read structured attributes, not the
-  // description or shipping fields (Ed noticed dimensions missing there,
-  // 2026-07-24). Resolve properties by name from the live taxonomy so this
-  // works across families with different property sets.
+  const vocab = vocabForFamily(detail.family)
+  const draftAttrs = draft as { primary_color?: string | null; secondary_color?: string | null; art_style?: string | null }
   let attributesSet = 0
   try {
     const props = await gateway.getPropertiesByTaxonomyId(taxonomyId)
-    const wanted: Array<{ name: string; value: number; scaleName: string }> = [
-      { name: 'Height', value: height, scaleName: 'Inches' },
-      { name: 'Width', value: width, scaleName: 'Inches' },
-      { name: 'Length', value: depth, scaleName: 'Inches' },
-      { name: 'Weight', value: weight, scaleName: 'Pounds' },
+    const findProp = (name: string) => props.find((p) => p.name === name)
+    const valueId = (name: string, valueName: string) =>
+      findProp(name)?.possible_values?.find((v) => v.name.toLowerCase() === valueName.toLowerCase())?.value_id
+
+    // Predefined-value attributes: material (fixed), colors + art style (from draft).
+    const valueAttrs: Array<{ prop: string; value: string | null | undefined }> = [
+      { prop: vocab.materialProperty, value: vocab.materialValue },
+      { prop: 'Primary color', value: draftAttrs.primary_color },
+      { prop: 'Secondary color', value: draftAttrs.secondary_color },
+      ...(vocab.artStyleProperty ? [{ prop: vocab.artStyleProperty, value: draftAttrs.art_style ?? null }] : []),
+      ...(vocab.mountProperty ? [{ prop: vocab.mountProperty, value: vocab.mountValue ?? null }] : []),
     ]
-    for (const attr of wanted) {
-      const prop = props.find((p) => p.name === attr.name)
-      const scale = prop?.scales.find((s) => s.display_name === attr.scaleName)
-      if (!prop || !scale) {
-        warnings.push(`no ${attr.name} attribute in this category; skipped`)
+    for (const attr of valueAttrs) {
+      if (!attr.value) continue
+      const prop = findProp(attr.prop)
+      const vid = valueId(attr.prop, attr.value)
+      if (!prop || vid == null) {
+        warnings.push(`${attr.prop} value "${attr.value}" not available in this category; skipped`)
         continue
       }
       try {
-        await gateway.updateListingProperty(me.shop_id, listingId, prop.property_id, {
-          values: String(attr.value),
-          scale_id: scale.scale_id,
-        })
+        await gateway.updateListingProperty(me.shop_id, listingId, prop.property_id, { values: attr.value, value_ids: [vid] })
         attributesSet += 1
       } catch (err) {
-        warnings.push(`${attr.name} attribute failed: ${err instanceof Error ? err.message : String(err)}`)
+        warnings.push(`${attr.prop} failed: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+
+    // Dimension attributes (scaled): Width/Height/Depth in inches.
+    if (vocab.hasDimensions) {
+      const dims: Array<{ name: string; value: number }> = [
+        { name: 'Height', value: height },
+        { name: 'Width', value: width },
+        { name: 'Depth', value: depth },
+      ]
+      for (const d of dims) {
+        const prop = findProp(d.name)
+        const scale = prop?.scales.find((s) => s.display_name === 'Inches')
+        if (!prop || !scale) {
+          warnings.push(`no ${d.name} attribute in this category; skipped`)
+          continue
+        }
+        try {
+          await gateway.updateListingProperty(me.shop_id, listingId, prop.property_id, { values: String(d.value), scale_id: scale.scale_id })
+          attributesSet += 1
+        } catch (err) {
+          warnings.push(`${d.name} attribute failed: ${err instanceof Error ? err.message : String(err)}`)
+        }
       }
     }
   } catch (err) {

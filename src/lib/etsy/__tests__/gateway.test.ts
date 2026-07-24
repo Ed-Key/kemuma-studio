@@ -148,7 +148,12 @@ describe('gateway', () => {
     const [url] = fetchFn.mock.calls[0] as unknown as [string]
     expect(url).toBe('https://api.etsy.com/v3/application/seller-taxonomy/nodes/1060/properties')
     expect(props).toEqual([
-      { property_id: 505, name: 'Height', scales: [{ scale_id: 347, display_name: 'Inches' }] },
+      {
+        property_id: 505,
+        name: 'Height',
+        scales: [{ scale_id: 347, display_name: 'Inches' }],
+        possible_values: [],
+      },
     ])
   })
 
@@ -161,5 +166,14 @@ describe('gateway', () => {
     const body = new URLSearchParams(init.body as string)
     expect(body.get('values')).toBe('3')
     expect(body.get('scale_id')).toBe('347')
+  })
+
+  it('puts a predefined property with value ids and names', async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({}))
+    await gatewayWith(fetchFn).updateListingProperty(42, 9, 200, { values: 'Blue', value_ids: [2] })
+    const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    const body = new URLSearchParams(init.body as string)
+    expect(body.get('values')).toBe('Blue')
+    expect(body.get('value_ids')).toBe('2')
   })
 })

@@ -25,7 +25,14 @@ function fakeGateway(overrides: Partial<EtsyGateway> = {}): EtsyGateway {
     getShippingProfiles: vi.fn(async () => [{ shipping_profile_id: 5, title: 'Manual' }]),
     getReadinessStateDefinitions: vi.fn(async () => [{ readiness_state_id: 3, readiness_state: 'ready_to_ship' }]),
     getSellerTaxonomyNodes: vi.fn(async () => [
-      { id: 1, name: 'Home & Living', children: [{ id: 3, name: 'Coasters', children: [] }] },
+      {
+        id: 1,
+        name: 'Home & Living',
+        children: [
+          { id: 3, name: 'Coasters', children: [] },
+          { id: 1003, name: 'Decorative Bowls', children: [] },
+        ],
+      },
     ]),
     createDraftListing: vi.fn(async () => ({ listing_id: 777, state: 'draft', title: 't' })),
     deleteListing: vi.fn(async () => undefined),
@@ -33,18 +40,23 @@ function fakeGateway(overrides: Partial<EtsyGateway> = {}): EtsyGateway {
     uploadListingImage: vi.fn(async () => undefined),
     updateListingInventory: vi.fn(async () => undefined),
     getPropertiesByTaxonomyId: vi.fn(async () => [
-      { property_id: 505, name: 'Height', scales: [{ scale_id: 347, display_name: 'Inches' }] },
-      { property_id: 512, name: 'Width', scales: [{ scale_id: 338, display_name: 'Inches' }] },
-      { property_id: 506, name: 'Length', scales: [{ scale_id: 350, display_name: 'Inches' }] },
-      { property_id: 511, name: 'Weight', scales: [{ scale_id: 332, display_name: 'Pounds' }] },
+      { property_id: 505, name: 'Height', scales: [{ scale_id: 347, display_name: 'Inches' }], possible_values: [] },
+      { property_id: 512, name: 'Width', scales: [{ scale_id: 338, display_name: 'Inches' }], possible_values: [] },
+      { property_id: 513, name: 'Depth', scales: [{ scale_id: 344, display_name: 'Inches' }], possible_values: [] },
+      { property_id: 200, name: 'Material multi', scales: [], possible_values: [{ value_id: 900, name: 'Soapstone' }] },
+      { property_id: 201, name: 'Primary color', scales: [], possible_values: [{ value_id: 2, name: 'Blue' }] },
     ]),
     updateListingProperty: vi.fn(async () => undefined),
     ...overrides,
   }
 }
 
-async function seed(db: Db, dataDir: string, opts: { colorways: string[]; approved?: boolean }) {
-  const designId = createDesign(db, { family: 'coaster set', name: 'Etched Coaster Set' })
+async function seed(
+  db: Db,
+  dataDir: string,
+  opts: { colorways: string[]; approved?: boolean; family?: string }
+) {
+  const designId = createDesign(db, { family: opts.family ?? 'coaster set', name: 'Etched Coaster Set' })
   for (const [i, colorway] of opts.colorways.entries()) {
     const pieceId = addPiece(db, { design_id: designId, colorway, height_in: 3, width_in: 4.5, depth_in: 4.5, weight_lb: 3, quantity: 1 })
     const photoDir = path.join(dataDir, 'photos', String(pieceId))
@@ -139,24 +151,24 @@ describe('pushDraftToEtsy', () => {
 
   it('writes dimension attributes so etsy highlights show them', async () => {
     const { db, dataDir } = setup()
-    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const designId = await seed(db, dataDir, { colorways: ['blue'], family: 'heart dish' })
     const gw = fakeGateway()
     const result = await pushDraftToEtsy(db, gw, designId, dataDir)
     expect(result.attributes_set).toBe(4)
     const calls = (gw.updateListingProperty as ReturnType<typeof vi.fn>).mock.calls
     // seed pieces: height 3, width 4.5, depth 4.5, weight 3
+    expect(calls).toContainEqual([42, 777, 200, { values: 'Soapstone', value_ids: [900] }])
     expect(calls).toContainEqual([42, 777, 505, { values: '3', scale_id: 347 }])
     expect(calls).toContainEqual([42, 777, 512, { values: '4.5', scale_id: 338 }])
-    expect(calls).toContainEqual([42, 777, 506, { values: '4.5', scale_id: 350 }])
-    expect(calls).toContainEqual([42, 777, 511, { values: '3', scale_id: 332 }])
+    expect(calls).toContainEqual([42, 777, 513, { values: '4.5', scale_id: 344 }])
   })
 
   it('skips missing attributes with a warning and keeps the rest', async () => {
     const { db, dataDir } = setup()
-    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const designId = await seed(db, dataDir, { colorways: ['blue'], family: 'heart dish' })
     const gw = fakeGateway({
       getPropertiesByTaxonomyId: vi.fn(async () => [
-        { property_id: 512, name: 'Width', scales: [{ scale_id: 338, display_name: 'Inches' }] },
+        { property_id: 512, name: 'Width', scales: [{ scale_id: 338, display_name: 'Inches' }], possible_values: [] },
       ]),
     })
     const result = await pushDraftToEtsy(db, gw, designId, dataDir)
@@ -166,7 +178,7 @@ describe('pushDraftToEtsy', () => {
 
   it('survives per-attribute failures', async () => {
     const { db, dataDir } = setup()
-    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const designId = await seed(db, dataDir, { colorways: ['blue'], family: 'heart dish' })
     const gw = fakeGateway({
       updateListingProperty: vi.fn(async () => {
         throw new Error('boom')
@@ -176,5 +188,27 @@ describe('pushDraftToEtsy', () => {
     expect(result.attributes_set).toBe(0)
     expect(result.created).toBe(true)
     expect(result.warnings.join(' ')).toMatch(/boom/)
+  })
+
+  it('writes material, color, and dimension attributes from the draft and catalog', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'], family: 'heart dish' })
+    // give the draft an AI-picked color
+    const { latestDraftForDesign } = await import('@/lib/catalog/drafts')
+    const rec = latestDraftForDesign(db, designId)!
+    const final = { ...JSON.parse(rec.final_json!), primary_color: 'Blue' }
+    const { approveDraft } = await import('@/lib/catalog/drafts')
+    approveDraft(db, { draft_id: rec.draft_id, final_json: JSON.stringify(final), edited_fields: [] })
+
+    const gw = fakeGateway()
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir)
+    const calls = (gw.updateListingProperty as ReturnType<typeof vi.fn>).mock.calls
+    // material Soapstone -> value_id 900 on property 200
+    expect(calls).toContainEqual([42, 777, 200, { values: 'Soapstone', value_ids: [900] }])
+    // primary color Blue -> value_id 2 on property 201
+    expect(calls).toContainEqual([42, 777, 201, { values: 'Blue', value_ids: [2] }])
+    // dimensions height 3 on property 505
+    expect(calls).toContainEqual([42, 777, 505, { values: '3', scale_id: 347 }])
+    expect(result.attributes_set).toBeGreaterThanOrEqual(3)
   })
 })
