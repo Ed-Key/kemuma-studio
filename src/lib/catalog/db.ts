@@ -117,4 +117,8 @@ function migrate(db: Db): void {
   if (!stagedCols.includes('etsy_uploaded_at')) {
     db.exec('ALTER TABLE staged_images ADD COLUMN etsy_uploaded_at TEXT')
   }
+  const designCols = (db.prepare('PRAGMA table_info(designs)').all() as Array<{ name: string }>).map((c) => c.name)
+  if (!designCols.includes('published_at')) {
+    db.exec('ALTER TABLE designs ADD COLUMN published_at TEXT')
+  }
 }

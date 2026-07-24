@@ -82,9 +82,16 @@ export function getPhotoPath(db: Db, photoId: number): string | null {
 
 export function getDesignDetail(db: Db, designId: number) {
   const design = db
-    .prepare('SELECT design_id, family, name, notes, etsy_listing_id FROM designs WHERE design_id = ?')
+    .prepare('SELECT design_id, family, name, notes, etsy_listing_id, published_at FROM designs WHERE design_id = ?')
     .get(designId) as
-    | { design_id: number; family: string; name: string; notes: string | null; etsy_listing_id: number | null }
+    | {
+        design_id: number
+        family: string
+        name: string
+        notes: string | null
+        etsy_listing_id: number | null
+        published_at: string | null
+      }
     | undefined
   if (!design) return null
   const pieces = db
@@ -119,4 +126,11 @@ export function setDesignEtsyListingId(db: Db, designId: number, listingId: numb
 export function markDesignPiecesListed(db: Db, designId: number): void {
   db.prepare("UPDATE pieces SET status = 'listed' WHERE design_id = ?").run(designId)
   logEvent(db, 'pieces.listed', { design_id: designId })
+}
+
+// The app never publishes; the owner does that in Shop Manager. This records
+// their word for it so the catalog can stop calling an unpublished draft listed.
+export function markDesignPublished(db: Db, designId: number): void {
+  db.prepare("UPDATE designs SET published_at = datetime('now') WHERE design_id = ?").run(designId)
+  logEvent(db, 'etsy.published', { design_id: designId })
 }

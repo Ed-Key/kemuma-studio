@@ -65,3 +65,16 @@ export async function uploadPhotosAction(_prev: ActionResult | null, formData: F
     return { ok: false, message: 'Could not upload photos.', detail: errText(err) }
   }
 }
+
+export async function markPublishedAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const { markDesignPublished } = await import('@/lib/catalog/catalog')
+    markDesignPublished(getCatalogDb(), designId)
+    revalidatePath(`/designs/${designId}`)
+    revalidatePath('/designs')
+    return { ok: true, message: 'Marked as published.' }
+  } catch (err) {
+    return { ok: false, message: 'Could not mark it published.', detail: errText(err) }
+  }
+}

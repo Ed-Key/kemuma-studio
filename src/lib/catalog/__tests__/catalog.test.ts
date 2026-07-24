@@ -35,7 +35,7 @@ describe('openDb', () => {
 
 import {
   createDesign, listDesigns, getDesignDetail, addPiece, addPhoto, getPhotoPath, listEvents,
-  setDesignEtsyListingId, markDesignPiecesListed,
+  setDesignEtsyListingId, markDesignPiecesListed, markDesignPublished,
 } from '@/lib/catalog/catalog'
 
 describe('catalog operations', () => {
@@ -104,5 +104,13 @@ describe('catalog operations', () => {
     markDesignPiecesListed(db, id)
     const detail = getDesignDetail(db, id)!
     expect(detail.pieces.every((p) => p.status === 'listed')).toBe(true)
+  })
+
+  it('records when a design was published by hand', () => {
+    const id = createDesign(db, { family: 'figure', name: 'Lovers Loop' })
+    expect(getDesignDetail(db, id)?.published_at).toBeNull()
+    markDesignPublished(db, id)
+    expect(getDesignDetail(db, id)?.published_at).toBeTruthy()
+    expect(listEvents(db).some((e) => e.type === 'etsy.published')).toBe(true)
   })
 })

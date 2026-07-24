@@ -6,11 +6,14 @@ import PendingSubmit from '../components/PendingSubmit'
 
 export const dynamic = 'force-dynamic'
 
-function statusFor(pieceStatuses: string[], onEtsy: boolean): { label: string; cls: string } {
+function statusFor(
+  pieceStatuses: string[],
+  onEtsy: boolean,
+  published: boolean
+): { label: string; cls: string } {
   if (pieceStatuses.length === 0) return { label: 'empty', cls: 'pill pill--none muted' }
-  const listed = pieceStatuses.filter((s) => s === 'listed').length
-  if (onEtsy || listed === pieceStatuses.length) return { label: 'listed', cls: 'pill pill--accent' }
-  if (listed > 0) return { label: 'partly listed', cls: 'pill pill--warn' }
+  if (published) return { label: 'published', cls: 'pill pill--accent' }
+  if (onEtsy) return { label: 'etsy draft', cls: 'pill pill--warn' }
   return { label: 'cataloged', cls: 'pill' }
 }
 
@@ -22,14 +25,16 @@ export default function DesignsPage() {
     const cover = detail?.pieces.flatMap((p) => p.photos)[0]?.photo_id ?? null
     const status = statusFor(
       detail?.pieces.map((p) => p.status) ?? [],
-      detail?.etsy_listing_id != null
+      detail?.etsy_listing_id != null,
+      detail?.published_at != null
     )
     return { ...d, cover, status }
   })
 
   const totalPieces = designs.reduce((n, d) => n + d.piece_count, 0)
   const totalQty = designs.reduce((n, d) => n + d.total_quantity, 0)
-  const onEtsy = cards.filter((c) => c.status.label === 'listed').length
+  const pushed = cards.filter((c) => c.status.label === 'etsy draft' || c.status.label === 'published').length
+  const live = cards.filter((c) => c.status.label === 'published').length
 
   return (
     <div>
@@ -48,7 +53,9 @@ export default function DesignsPage() {
           <div className="stat-label">Pieces, {totalQty} total quantity</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">{onEtsy}</div>
+          <div className="stat-number">
+            {pushed} pushed, {live} live
+          </div>
           <div className="stat-label">On Etsy</div>
         </div>
       </div>

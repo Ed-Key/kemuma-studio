@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
-import { addPieceAction, uploadPhotosAction } from '../actions'
+import { addPieceAction, markPublishedAction, uploadPhotosAction } from '../actions'
 import ActionForm from '../../components/ActionForm'
 import DesignHeader from '../../components/DesignHeader'
 import PendingSubmit from '../../components/PendingSubmit'
@@ -38,6 +38,18 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
       </Link>
 
       <DesignHeader detail={detail} current="pieces" />
+
+      {detail.etsy_listing_id != null &&
+        (detail.published_at ? (
+          <span className="pill pill--ok">published</span>
+        ) : (
+          <ActionForm action={markPublishedAction} className="action-row">
+            <input type="hidden" name="design_id" value={detail.design_id} />
+            <PendingSubmit pendingLabel="Marking published..." variant="ghost">
+              I published this in Shop Manager
+            </PendingSubmit>
+          </ActionForm>
+        ))}
 
       <div className="card">
         <div className="card-title">Pieces</div>
