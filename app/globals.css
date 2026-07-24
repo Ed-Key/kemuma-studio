@@ -947,3 +947,45 @@ p {
   text-align: center;
   font-size: 14px;
 }
+
+/* Staging director chat */
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+.chat-msg {
+  max-width: 640px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.chat-msg--user {
+  align-self: flex-end;
+  border-color: #3a342e;
+}
+.chat-msg p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+.chat-role {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.chat-note {
+  color: var(--accent);
+  font-size: 13px;
+}
+.plan-card {
+  border: 1px solid var(--accent);
+  padding: 14px 16px;
+}
+.plan-scene {
+  color: var(--text-2);
+  font-size: 14px;
+}

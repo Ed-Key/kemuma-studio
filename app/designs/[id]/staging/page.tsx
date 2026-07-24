@@ -3,7 +3,8 @@ import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { listStagedForDesign, DESTINATIONS } from '@/lib/catalog/staged'
 import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
-import { scenesForFamily, getScene } from '@/lib/staging/scenes'
+import { getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
+import { scenesForFamily, SCENES } from '@/lib/staging/scenes'
 import ActionForm from '../../../components/ActionForm'
 import PendingSubmit from '../../../components/PendingSubmit'
 import {
@@ -13,6 +14,9 @@ import {
   generateDimensionCardAction,
   approveDimensionCardAction,
   rejectDimensionCardAction,
+  chatTurnAction,
+  executePlanAction,
+  discardPlanAction,
 } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -25,6 +29,7 @@ const DESTINATION_LABELS: Record<string, string> = {
 }
 
 export default async function StagingPage({ params }: { params: Promise<{ id: string }> }) {
+  const sceneLabel = (key: string) => SCENES.find((s) => s.key === key)?.label ?? 'Custom scene'
   const { id } = await params
   const db = getCatalogDb()
   const detail = getDesignDetail(db, Number(id))
@@ -35,6 +40,9 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
   )
   const staged = listStagedForDesign(db, Number(id))
   const dimCards = listDimensionCardsForDesign(db, Number(id))
+  const chat = getChatForDesign(db, Number(id))
+  const chatMessages: ChatMessage[] = chat ? JSON.parse(chat.messages_json) : []
+  const pendingPlan = chat?.pending_plan_json ? JSON.parse(chat.pending_plan_json) : null
 
   return (
     <div>
@@ -165,6 +173,66 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
+      <div className="card section stack-sm">
+        <div className="card-title">Staging director</div>
+        <p className="policy-note">
+          Tell it how this piece lives (what it holds, its story) and it plans a custom scene.
+          It looks at the photos and catalog before planning; you approve every generation.
+        </p>
+        {chat?.staging_notes && (
+          <p className="chat-note">Staging notes: {chat.staging_notes}</p>
+        )}
+        {chatMessages.length > 0 && (
+          <div className="chat-log">
+            {chatMessages.map((m, i) => (
+              <div key={i} className={`chat-msg chat-msg--${m.role}`}>
+                <span className="chat-role">{m.role === 'user' ? 'You' : 'Director'}</span>
+                <p>{m.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <ActionForm action={chatTurnAction} className="stack-sm">
+          <input type="hidden" name="design_id" value={detail.design_id} />
+          <textarea
+            className="textarea"
+            name="message"
+            rows={3}
+            placeholder="e.g. I keep my jewelry in this dish. Stage it with a thin gold chain draped over the edge."
+            required
+          />
+          <div className="action-row">
+            <PendingSubmit pendingLabel="Director is thinking..." orbState="composing" variant="primary">
+              Send
+            </PendingSubmit>
+          </div>
+        </ActionForm>
+        {pendingPlan && (
+          <div className="plan-card stack-sm">
+            <div className="card-title">Planned batch</div>
+            <p className="plan-scene">{pendingPlan.scene}</p>
+            <p className="mono muted">
+              {pendingPlan.n} images · {pendingPlan.size} · {pendingPlan.reference_photo_ids.length} reference
+              photo{pendingPlan.reference_photo_ids.length > 1 ? 's' : ''} · about ${(pendingPlan.n * 0.2).toFixed(2)}
+            </p>
+            <div className="row">
+              <ActionForm action={executePlanAction} className="action-row">
+                <input type="hidden" name="design_id" value={detail.design_id} />
+                <PendingSubmit pendingLabel="Staging planned scene..." orbState="working" variant="primary">
+                  Generate {pendingPlan.n}
+                </PendingSubmit>
+              </ActionForm>
+              <ActionForm action={discardPlanAction} className="action-row">
+                <input type="hidden" name="design_id" value={detail.design_id} />
+                <PendingSubmit pendingLabel="Discarding..." variant="ghost">
+                  Discard plan
+                </PendingSubmit>
+              </ActionForm>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="section">
         {staged.length === 0 ? (
           <p className="empty">No staged images yet.</p>
@@ -175,7 +243,7 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="staged-img" src={`/api/staged/${s.staged_id}`} alt={detail.name} />
                 <div className="meta-line mono">
-                  {getScene(s.scene_key).label}
+                  {sceneLabel(s.scene_key)}
                   {s.cost_usd != null ? ` · $${s.cost_usd.toFixed(3)}` : ''}
                 </div>
                 {s.status === 'approved' && (

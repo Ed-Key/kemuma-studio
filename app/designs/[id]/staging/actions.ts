@@ -114,3 +114,56 @@ export async function rejectDimensionCardAction(
     return { ok: false, message: 'Could not reject the card.', detail: errText(err) }
   }
 }
+
+export async function chatTurnAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const message = String(formData.get('message') ?? '').trim()
+    if (!message) throw new Error('write a message first')
+    const { getOrCreateChatForDesign } = await import('@/lib/catalog/chats')
+    const { runAgentTurn, createAnthropicAgentClient } = await import('@/lib/staging/agent')
+    const chat = getOrCreateChatForDesign(getCatalogDb(), designId)
+    await runAgentTurn(getCatalogDb(), createAnthropicAgentClient(), {
+      designId, chatId: chat.chat_id, userText: message,
+    })
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: 'Reply below.' }
+  } catch (err) {
+    return { ok: false, message: 'The staging director could not respond.', detail: errText(err) }
+  }
+}
+
+export async function executePlanAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
+    const { getChatForDesign, setPendingPlan } = await import('@/lib/catalog/chats')
+    const { StagingPlanSchema } = await import('@/lib/staging/plan')
+    const { runPlannedBatch } = await import('@/lib/staging/stage')
+    const db = getCatalogDb()
+    const chat = getChatForDesign(db, designId)
+    if (!chat?.pending_plan_json) throw new Error('no pending plan; ask the staging director first')
+    const plan = StagingPlanSchema.parse(JSON.parse(chat.pending_plan_json))
+    const ids = await runPlannedBatch(db, { fetchFn: fetch, apiKey }, { designId, dataDir: dataDir(), plan })
+    setPendingPlan(db, chat.chat_id, null)
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: `Staged ${ids.length} candidates from the chat plan.` }
+  } catch (err) {
+    return { ok: false, message: 'Could not run the chat plan.', detail: errText(err) }
+  }
+}
+
+export async function discardPlanAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const { getChatForDesign, setPendingPlan } = await import('@/lib/catalog/chats')
+    const db = getCatalogDb()
+    const chat = getChatForDesign(db, designId)
+    if (chat) setPendingPlan(db, chat.chat_id, null)
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: 'Plan discarded.' }
+  } catch (err) {
+    return { ok: false, message: 'Could not discard the plan.', detail: errText(err) }
+  }
+}
