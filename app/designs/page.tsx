@@ -4,6 +4,7 @@ import { listDesigns, getDesignDetail } from '@/lib/catalog/catalog'
 import { latestDraftForDesign } from '@/lib/catalog/drafts'
 import { listStagedForDesign } from '@/lib/catalog/staged'
 import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
+import { SHOP_DRAFTS_URL, SHOP_LISTINGS_URL } from '@/lib/etsy/urls'
 import { createDesignAction } from './actions'
 import PendingSubmit from '../components/PendingSubmit'
 
@@ -90,7 +91,16 @@ export default function DesignsPage() {
           <div className="stat-number">
             {pushed} pushed, {live} live
           </div>
-          <div className="stat-label">On Etsy</div>
+          <div className="stat-label">
+            On Etsy ·{' '}
+            <a href={SHOP_LISTINGS_URL} target="_blank" rel="noreferrer">
+              all listings
+            </a>{' '}
+            ·{' '}
+            <a href={SHOP_DRAFTS_URL} target="_blank" rel="noreferrer">
+              drafts
+            </a>
+          </div>
         </div>
       </div>
 
