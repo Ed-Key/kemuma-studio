@@ -11,3 +11,4 @@ dist/
 data/
 *.sqlite
 *.sqlite-*
+.next-build/
