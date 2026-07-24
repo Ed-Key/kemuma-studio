@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { listDesigns, getDesignDetail } from '@/lib/catalog/catalog'
+import { latestDraftForDesign } from '@/lib/catalog/drafts'
+import { listStagedForDesign } from '@/lib/catalog/staged'
+import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
 import { createDesignAction } from './actions'
 import PendingSubmit from '../components/PendingSubmit'
 
@@ -17,19 +20,50 @@ function statusFor(
   return { label: 'cataloged', cls: 'pill' }
 }
 
+// Order matches the real job: catalog, write, approve, push, review images, publish.
+function nextAction(d: {
+  pieceCount: number
+  draftStatus: 'none' | 'generated' | 'approved'
+  onEtsy: boolean
+  published: boolean
+  toReview: number
+}): { stage: number; label: string } {
+  if (d.pieceCount === 0) return { stage: 0, label: 'add a piece' }
+  if (d.draftStatus === 'none') return { stage: 1, label: 'needs copy' }
+  if (d.draftStatus === 'generated') return { stage: 2, label: 'approve the copy' }
+  if (!d.onEtsy) return { stage: 3, label: 'ready to push' }
+  if (d.toReview > 0) return { stage: 4, label: `${d.toReview} to review` }
+  if (!d.published) return { stage: 5, label: 'publish it' }
+  return { stage: 6, label: '' }
+}
+
 export default function DesignsPage() {
   const db = getCatalogDb()
   const designs = listDesigns(db)
-  const cards = designs.map((d) => {
-    const detail = getDesignDetail(db, d.design_id)
-    const cover = detail?.pieces.flatMap((p) => p.photos)[0]?.photo_id ?? null
-    const status = statusFor(
-      detail?.pieces.map((p) => p.status) ?? [],
-      detail?.etsy_listing_id != null,
-      detail?.published_at != null
-    )
-    return { ...d, cover, status }
-  })
+  const cards = designs
+    .map((d) => {
+      const detail = getDesignDetail(db, d.design_id)
+      const draft = latestDraftForDesign(db, d.design_id)
+      const staged = listStagedForDesign(db, d.design_id)
+      const dimCards = listDimensionCardsForDesign(db, d.design_id)
+      const cover = detail?.pieces.flatMap((p) => p.photos)[0]?.photo_id ?? null
+      const status = statusFor(
+        detail?.pieces.map((p) => p.status) ?? [],
+        detail?.etsy_listing_id != null,
+        detail?.published_at != null
+      )
+      const next = nextAction({
+        pieceCount: detail?.pieces.length ?? 0,
+        draftStatus: draft?.status ?? 'none',
+        onEtsy: detail?.etsy_listing_id != null,
+        published: detail?.published_at != null,
+        toReview:
+          staged.filter((s) => s.status === 'candidate').length +
+          dimCards.filter((c) => c.status === 'candidate').length,
+      })
+      return { ...d, cover, status, next }
+    })
+    .sort((a, b) => a.next.stage - b.next.stage || a.name.localeCompare(b.name))
 
   const totalPieces = designs.reduce((n, d) => n + d.piece_count, 0)
   const totalQty = designs.reduce((n, d) => n + d.total_quantity, 0)
@@ -76,6 +110,7 @@ export default function DesignsPage() {
                 <span className="design-qty">qty {c.total_quantity}</span>
               </div>
               <span className={c.status.cls}>{c.status.label}</span>
+              {c.next.label ? <div className="meta-line mono">{c.next.label}</div> : null}
             </div>
           </Link>
         ))}
