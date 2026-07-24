@@ -43,3 +43,25 @@ export interface DraftListingInput {
   item_height?: number
   item_dimensions_unit?: 'in' | 'ft' | 'mm' | 'cm' | 'm' | 'yd'
 }
+
+export interface ListingPatch {
+  title?: string
+  description?: string
+  tags?: string
+  materials?: string
+  price?: number
+  item_weight?: number
+  item_weight_unit?: string
+  item_length?: number
+  item_width?: number
+  item_height?: number
+  item_dimensions_unit?: string
+}
+
+export interface InventoryBody {
+  products: Array<{
+    sku?: string
+    property_values: Array<{ property_id: number; property_name: string; values: string[] }>
+    offerings: Array<{ price: number; quantity: number; is_enabled: boolean }>
+  }>
+}

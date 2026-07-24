@@ -90,4 +90,50 @@ describe('gateway', () => {
     expect(err.status).toBe(400)
     expect(err.body).toContain('missing taxonomy_id')
   })
+
+  it('patches listing fields form-encoded, dropping undefined', async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true, status: 200, text: async () => '{}' }) as unknown as Response)
+    await gatewayWith(fetchFn).updateListing(42, 9, { title: 'new title', price: 59 })
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings/9')
+    expect(init.method).toBe('PATCH')
+    const body = new URLSearchParams(init.body as string)
+    expect(body.get('title')).toBe('new title')
+    expect(body.get('price')).toBe('59')
+    expect(body.has('description')).toBe(false)
+  })
+
+  it('uploads an image as multipart with rank', async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true, status: 201, text: async () => '{}' }) as unknown as Response)
+    await gatewayWith(fetchFn).uploadListingImage(42, 9, Buffer.from('jpegbytes'), '0.jpg', 1)
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings/9/images')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBeInstanceOf(FormData)
+    const form = init.body as FormData
+    expect(form.get('rank')).toBe('1')
+    const file = form.get('image') as File
+    expect(file.name).toBe('0.jpg')
+    const headers = init.headers as Record<string, string>
+    expect(headers['Content-Type']).toBeUndefined() // fetch sets the multipart boundary itself
+    expect(headers['x-api-key']).toBe('k123:s3cr3t')
+  })
+
+  it('puts inventory as json', async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true, status: 200, text: async () => '{}' }) as unknown as Response)
+    const body = {
+      products: [
+        {
+          property_values: [{ property_id: 513, property_name: 'Colorway', values: ['blue'] }],
+          offerings: [{ price: 58, quantity: 1, is_enabled: true }],
+        },
+      ],
+    }
+    await gatewayWith(fetchFn).updateListingInventory(9, body)
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.etsy.com/v3/application/listings/9/inventory')
+    expect(init.method).toBe('PUT')
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+    expect(JSON.parse(init.body as string)).toEqual(body)
+  })
 })
