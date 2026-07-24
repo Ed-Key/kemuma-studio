@@ -37,19 +37,19 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
         All designs
       </Link>
 
-      <DesignHeader detail={detail} current="pieces" />
-
-      {detail.etsy_listing_id != null &&
-        (detail.published_at ? (
-          <span className="pill pill--ok">published</span>
-        ) : (
-          <ActionForm action={markPublishedAction} className="action-row">
-            <input type="hidden" name="design_id" value={detail.design_id} />
-            <PendingSubmit pendingLabel="Marking published..." variant="ghost">
-              I published this in Shop Manager
-            </PendingSubmit>
-          </ActionForm>
-        ))}
+      <DesignHeader detail={detail} current="pieces">
+        {detail.etsy_listing_id != null &&
+          (detail.published_at ? (
+            <span className="pill pill--ok">published</span>
+          ) : (
+            <ActionForm action={markPublishedAction}>
+              <PendingSubmit pendingLabel="Marking published..." variant="ghost">
+                Mark published
+              </PendingSubmit>
+              <input type="hidden" name="design_id" value={detail.design_id} />
+            </ActionForm>
+          ))}
+      </DesignHeader>
 
       <div className="card">
         <div className="card-title">Pieces</div>

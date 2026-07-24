@@ -21,7 +21,15 @@ type Tab = 'pieces' | 'draft' | 'staging' | 'bakeoff'
  * every design-scoped page so the Etsy link and per-tab state never depend on
  * which step the user happens to be looking at.
  */
-export default function DesignHeader({ detail, current }: { detail: DesignDetail; current: Tab }) {
+export default function DesignHeader({
+  detail,
+  current,
+  children,
+}: {
+  detail: DesignDetail
+  current: Tab
+  children?: React.ReactNode
+}) {
   const db = getCatalogDb()
   const draft = latestDraftForDesign(db, detail.design_id)
   const staged = listStagedForDesign(db, detail.design_id)
@@ -86,6 +94,7 @@ export default function DesignHeader({ detail, current }: { detail: DesignDetail
             {t.state ? <span className="mono muted"> · {t.state}</span> : null}
           </Link>
         ))}
+        {children}
       </div>
     </div>
   )
