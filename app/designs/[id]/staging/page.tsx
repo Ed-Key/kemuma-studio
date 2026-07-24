@@ -81,6 +81,13 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
           )}
+          <label className="select-row">
+            <input type="checkbox" name="variance" defaultChecked />
+            <span>
+              Vary pose and angle
+              <span className="muted"> · four different arrangements from up to three reference views</span>
+            </span>
+          </label>
           <div className="action-row">
             <PendingSubmit pendingLabel="Staging four scenes..." orbState="composing" variant="primary">
               Stage four scenes

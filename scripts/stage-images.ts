@@ -1,5 +1,7 @@
-// CLI: stage marketing images for one design.
-// Usage: npx tsx scripts/stage-images.ts <design_id> [scene_key] [photo_id]
+// CLI: stage marketing images for one design. Variance (multiple angles,
+// varied arrangements) is on by default; pass --no-variance for the
+// single-view batch.
+// Usage: npx tsx scripts/stage-images.ts <design_id> [scene_key] [photo_id] [--no-variance]
 import { config as loadEnv } from 'dotenv'
 loadEnv({ path: '.env.local' })
 
@@ -9,12 +11,14 @@ import { createClaudeArtDirector } from '../src/lib/staging/direct'
 import { runStaging } from '../src/lib/staging/stage'
 
 async function main() {
-  const designId = Number(process.argv[2])
+  const args = process.argv.slice(2).filter((a) => a !== '--no-variance')
+  const variance = !process.argv.includes('--no-variance')
+  const designId = Number(args[0])
   if (!Number.isFinite(designId)) {
-    throw new Error('usage: tsx scripts/stage-images.ts <design_id> [scene_key] [photo_id]')
+    throw new Error('usage: tsx scripts/stage-images.ts <design_id> [scene_key] [photo_id] [--no-variance]')
   }
-  const sceneKey = process.argv[3] || undefined
-  const sourcePhotoId = process.argv[4] ? Number(process.argv[4]) : undefined
+  const sceneKey = args[1] || undefined
+  const sourcePhotoId = args[2] ? Number(args[2]) : undefined
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
 
@@ -23,7 +27,7 @@ async function main() {
   const ids = await runStaging(
     db,
     { artDirector: createClaudeArtDirector(), fetchFn: fetch, apiKey },
-    { designId, dataDir: dataDir(), sceneKey, sourcePhotoId }
+    { designId, dataDir: dataDir(), sceneKey, sourcePhotoId, variance }
   )
   for (const id of ids) {
     const row = getStagedImage(db, id)!

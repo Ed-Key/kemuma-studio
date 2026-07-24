@@ -16,6 +16,7 @@ export async function stageDesignAction(_prev: ActionResult | null, formData: Fo
     const designId = Number(formData.get('design_id'))
     const sceneKey = String(formData.get('scene_key') ?? 'auto')
     const photoRaw = String(formData.get('source_photo_id') ?? '')
+    const variance = formData.get('variance') === 'on'
     const apiKey = process.env.OPENAI_API_KEY
     if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
     const ids = await runStaging(
@@ -26,6 +27,7 @@ export async function stageDesignAction(_prev: ActionResult | null, formData: Fo
         dataDir: dataDir(),
         sceneKey: sceneKey === 'auto' ? undefined : sceneKey,
         sourcePhotoId: photoRaw ? Number(photoRaw) : undefined,
+        variance,
       }
     )
     revalidatePath(`/designs/${designId}/staging`)

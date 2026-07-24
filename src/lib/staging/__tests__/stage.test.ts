@@ -19,27 +19,53 @@ const goodDirection: ArtDirection = {
   extra_exclusions: [],
 }
 
-function fakeDirector(directions: ArtDirection[]): ArtDirector & { calls: number } {
+const variedDirection = {
+  subject_and_count:
+    'Images 1 to 2 are different views of the same product. Show exactly one set of exactly four coasters, appearing exactly once.',
+  product_lock:
+    'Use the exact physical product from Image 1. Preserve its silhouette and painted artwork. Do not restyle, redraw, smooth, or symmetrize.',
+  extra_exclusions: [],
+  compositions: [
+    'Loose fan slightly left of center at realistic 3.8-inch scale.',
+    'Neat low stack with small offsets, three-quarter view at 3.8-inch scale.',
+    'Row of four with the painted faces angled to camera, 3.8-inch scale.',
+    'Two propped against two flat, closer crop, 3.8-inch scale.',
+  ] as [string, string, string, string],
+}
+
+function fakeDirector(directions: ArtDirection[]): ArtDirector & { calls: number; variedCalls: number; lastImageCount: number } {
   const d = {
     label: 'claude-opus-4-8',
     calls: 0,
+    variedCalls: 0,
+    lastImageCount: 0,
     async direct() {
       const direction = directions[Math.min(d.calls, directions.length - 1)]
       d.calls += 1
       return { direction, input_tokens: 1000, output_tokens: 200 }
     },
+    async directVaried(_userText: string, images: unknown[]) {
+      d.variedCalls += 1
+      d.lastImageCount = images.length
+      return { direction: variedDirection, input_tokens: 2000, output_tokens: 400 }
+    },
   }
   return d
 }
 
-async function fakeImagesFetch(): Promise<typeof fetch> {
+async function fakeImagesFetch(counter?: { calls: number; ns: number[] }): Promise<typeof fetch> {
   const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 10, b: 10 } } })
     .png()
     .toBuffer()
-  return (async () =>
-    new Response(
+  return (async (_url: RequestInfo | URL, init?: RequestInit) => {
+    const n = Number((init?.body as FormData).get('n'))
+    if (counter) {
+      counter.calls += 1
+      counter.ns.push(n)
+    }
+    return new Response(
       JSON.stringify({
-        data: Array.from({ length: 4 }, () => ({ b64_json: png.toString('base64') })),
+        data: Array.from({ length: n }, () => ({ b64_json: png.toString('base64') })),
         usage: {
           input_tokens: 1791, output_tokens: 5488,
           input_tokens_details: { image_tokens: 1536, text_tokens: 255 },
@@ -47,7 +73,8 @@ async function fakeImagesFetch(): Promise<typeof fetch> {
         },
       }),
       { status: 200 }
-    )) as typeof fetch
+    )
+  }) as typeof fetch
 }
 
 describe('runStaging', () => {
@@ -67,6 +94,11 @@ describe('runStaging', () => {
       .jpeg()
       .toFile(photoPath)
     addPhoto(db, { piece_id: pieceId, file_path: photoPath, position: 0 })
+    const photoPath2 = path.join(dataDir, 'photo2.jpg')
+    await sharp({ create: { width: 60, height: 40, channels: 3, background: { r: 90, g: 70, b: 50 } } })
+      .jpeg()
+      .toFile(photoPath2)
+    addPhoto(db, { piece_id: pieceId, file_path: photoPath2, position: 1 })
   })
 
   it('stages a batch of four candidates with files, prompts, and shared cost', async () => {
@@ -128,5 +160,57 @@ describe('runStaging', () => {
         { designId, dataDir, sourcePhotoId: strangerPhoto }
       )
     ).rejects.toThrow(/not a photo of design/)
+  })
+
+  it('variance mode makes four n=1 calls with distinct compositions', async () => {
+    const director = fakeDirector([goodDirection])
+    const counter = { calls: 0, ns: [] as number[] }
+    const ids = await runStaging(
+      db,
+      { artDirector: director, fetchFn: await fakeImagesFetch(counter), apiKey: 'sk-test' },
+      { designId, dataDir, sceneKey: 'coffee-table', variance: true }
+    )
+    expect(ids).toHaveLength(4)
+    expect(director.variedCalls).toBe(1)
+    expect(director.calls).toBe(0)
+    expect(director.lastImageCount).toBe(2) // primary + one supporting view
+    expect(counter.calls).toBe(4)
+    expect(counter.ns).toEqual([1, 1, 1, 1])
+    const prompts = listStagedForDesign(db, designId).map((r) => r.prompt)
+    expect(new Set(prompts).size).toBe(4) // each candidate carries its own composition
+    for (const p of prompts) expect(p).toContain('never composited')
+  })
+
+  it('variance references never cross into another piece or colorway', async () => {
+    const otherPieceId = addPiece(db, {
+      design_id: designId, colorway: 'midnight', height_in: 0.3, width_in: 3.8, depth_in: 3.8, weight_lb: 6.5,
+    })
+    const otherPhotoPath = path.join(dataDir, 'midnight.jpg')
+    await sharp({ create: { width: 60, height: 40, channels: 3, background: { r: 20, g: 30, b: 60 } } })
+      .jpeg()
+      .toFile(otherPhotoPath)
+    addPhoto(db, { piece_id: otherPieceId, file_path: otherPhotoPath, position: 0 })
+
+    const director = fakeDirector([goodDirection])
+    await runStaging(
+      db,
+      { artDirector: director, fetchFn: await fakeImagesFetch(), apiKey: 'sk-test' },
+      { designId, dataDir, sceneKey: 'coffee-table', variance: true }
+    )
+
+    expect(director.lastImageCount).toBe(2)
+  })
+
+  it('non-variance behavior is unchanged: one n=4 call', async () => {
+    const director = fakeDirector([goodDirection])
+    const counter = { calls: 0, ns: [] as number[] }
+    await runStaging(
+      db,
+      { artDirector: director, fetchFn: await fakeImagesFetch(counter), apiKey: 'sk-test' },
+      { designId, dataDir, sceneKey: 'coffee-table' }
+    )
+    expect(counter.calls).toBe(1)
+    expect(counter.ns).toEqual([4])
+    expect(director.variedCalls).toBe(0)
   })
 })
