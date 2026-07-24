@@ -48,38 +48,51 @@ describe('generateStagedImages', () => {
     output_tokens_details: { image_tokens: 200, text_tokens: 0 },
   }
 
-  it('posts multipart form fields and decodes the batch', async () => {
-    let captured: FormData | null = null
-    let capturedUrl = ''
-    let capturedAuth = ''
+  function fakeFetch(capture: { url?: string; auth?: string; form?: FormData }, images = 2) {
     const png = Buffer.from('fakepng')
-    const fetchFn = (async (url: RequestInfo | URL, init?: RequestInit) => {
-      capturedUrl = String(url)
-      capturedAuth = String((init?.headers as Record<string, string>).Authorization)
-      captured = init?.body as FormData
+    return (async (url: RequestInfo | URL, init?: RequestInit) => {
+      capture.url = String(url)
+      capture.auth = String((init?.headers as Record<string, string>).Authorization)
+      capture.form = init?.body as FormData
       return new Response(
-        JSON.stringify({ data: [{ b64_json: png.toString('base64') }, { b64_json: png.toString('base64') }], usage }),
+        JSON.stringify({
+          data: Array.from({ length: images }, () => ({ b64_json: png.toString('base64') })),
+          usage,
+        }),
         { status: 200 }
       )
     }) as typeof fetch
+  }
 
-    const batch = await generateStagedImages(fetchFn, 'sk-test', {
-      reference: Buffer.from('fakejpeg'),
+  it('posts every reference as an image[] entry and decodes the batch', async () => {
+    const capture: { url?: string; auth?: string; form?: FormData } = {}
+    const batch = await generateStagedImages(fakeFetch(capture), 'sk-test', {
+      references: [Buffer.from('ref-a'), Buffer.from('ref-b'), Buffer.from('ref-c')],
       prompt: 'SCENE - test',
       size: '1536x1024',
       n: 2,
     })
-    expect(capturedUrl).toBe('https://api.openai.com/v1/images/edits')
-    expect(capturedAuth).toBe('Bearer sk-test')
-    expect(captured!.get('model')).toBe(GPT_IMAGE_MODEL)
-    expect(captured!.get('quality')).toBe('high')
-    expect(captured!.get('n')).toBe('2')
-    expect(captured!.get('size')).toBe('1536x1024')
-    expect(captured!.get('input_fidelity')).toBeNull() // gpt-image-2 rejects this param
-    expect(captured!.get('image')).toBeInstanceOf(Blob)
+    expect(capture.url).toBe('https://api.openai.com/v1/images/edits')
+    expect(capture.auth).toBe('Bearer sk-test')
+    expect(capture.form!.get('model')).toBe(GPT_IMAGE_MODEL)
+    expect(capture.form!.get('quality')).toBe('high')
+    expect(capture.form!.get('n')).toBe('2')
+    expect(capture.form!.get('input_fidelity')).toBeNull() // gpt-image-2 rejects this param
+    const refs = capture.form!.getAll('image[]')
+    expect(refs).toHaveLength(3)
+    expect(refs.every((r) => r instanceof Blob)).toBe(true)
+    expect(capture.form!.get('image')).toBeNull() // legacy single field must be gone
     expect(batch.images).toHaveLength(2)
-    expect(batch.images[0].equals(png)).toBe(true)
     expect(batch.cost_usd).toBeGreaterThan(0)
+  })
+
+  it('rejects an empty reference list', async () => {
+    const capture: { url?: string; auth?: string; form?: FormData } = {}
+    await expect(
+      generateStagedImages(fakeFetch(capture), 'sk-test', {
+        references: [], prompt: 'p', size: '1024x1536', n: 1,
+      })
+    ).rejects.toThrow(/at least one reference/)
   })
 
   it('throws with the API error body on non-200', async () => {
@@ -87,7 +100,7 @@ describe('generateStagedImages', () => {
       new Response(JSON.stringify({ error: { message: 'bad prompt' } }), { status: 400 })) as typeof fetch
     await expect(
       generateStagedImages(fetchFn, 'sk-test', {
-        reference: Buffer.from('x'), prompt: 'p', size: '1024x1536', n: 4,
+        references: [Buffer.from('x')], prompt: 'p', size: '1024x1536', n: 4,
       })
     ).rejects.toThrow(/images API 400.*bad prompt/s)
   })

@@ -44,19 +44,25 @@ export interface StagedBatch {
 }
 
 // NOTE: never send input_fidelity; gpt-image-2 rejects the parameter and
-// already processes references at high fidelity automatically.
+// already processes references at high fidelity automatically. Multiple
+// references are different views of the SAME product; the prompt's
+// SUBJECT AND COUNT section must say so or the model may render one
+// product per image.
 export async function generateStagedImages(
   fetchFn: typeof fetch,
   apiKey: string,
-  input: { reference: Buffer; prompt: string; size: StagingSize; n: number }
+  input: { references: Buffer[]; prompt: string; size: StagingSize; n: number }
 ): Promise<StagedBatch> {
+  if (input.references.length === 0) throw new Error('staging needs at least one reference image')
   const form = new FormData()
   form.set('model', GPT_IMAGE_MODEL)
   form.set('prompt', input.prompt)
   form.set('size', input.size)
   form.set('quality', 'high')
   form.set('n', String(input.n))
-  form.set('image', new Blob([new Uint8Array(input.reference)], { type: 'image/jpeg' }), 'reference.jpg')
+  for (const [i, ref] of input.references.entries()) {
+    form.append('image[]', new Blob([new Uint8Array(ref)], { type: 'image/jpeg' }), `reference-${i + 1}.jpg`)
+  }
 
   const res = await fetchFn('https://api.openai.com/v1/images/edits', {
     method: 'POST',

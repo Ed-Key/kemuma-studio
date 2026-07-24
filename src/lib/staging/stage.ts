@@ -66,7 +66,7 @@ export async function runStaging(
   }
 
   const reference = await prepareReference(photoPath, scene.size)
-  const batch = await generateStagedImages(deps.fetchFn, deps.apiKey, { reference, prompt, size: scene.size, n })
+  const batch = await generateStagedImages(deps.fetchFn, deps.apiKey, { references: [reference], prompt, size: scene.size, n })
 
   const directorCost = computeCostUsd(deps.artDirector.label, directorIn, directorOut) ?? 0
   const costPerImage = (batch.cost_usd + directorCost) / batch.images.length
