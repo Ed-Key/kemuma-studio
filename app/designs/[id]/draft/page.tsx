@@ -158,22 +158,19 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
               </div>
 
               <div className="action-row">
-                <PendingSubmit
-                  pendingLabel="Approving..."
-                  orbState="working"
-                  variant="primary"
-                  disabled={approved}
-                >
-                  {approved ? 'Approved' : 'Approve'}
+                <PendingSubmit pendingLabel="Approving..." orbState="working" variant="primary">
+                  {approved ? 'Save and re-approve' : 'Approve'}
                 </PendingSubmit>
               </div>
             </ActionForm>
           )}
 
-          {approved && (
+          {(approved || detail.etsy_listing_id != null) && (
             <div className="card stack-sm">
               <div className="card-title">Etsy</div>
-              {detail.etsy_listing_id ? (
+              {detail.etsy_listing_id != null && !approved ? (
+                <span className="pill pill--warn">draft rewritten since the last push</span>
+              ) : detail.etsy_listing_id ? (
                 <p className="muted">Live as draft listing {detail.etsy_listing_id}.</p>
               ) : (
                 <p className="muted">Not yet on Etsy.</p>
@@ -181,10 +178,16 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
               <ActionForm action={pushToEtsyAction}>
                 <input type="hidden" name="design_id" value={detail.design_id} />
                 <div className="action-row">
-                  <PendingSubmit pendingLabel="Pushing to Etsy..." orbState="working" variant="primary">
+                  <PendingSubmit
+                    pendingLabel="Pushing to Etsy..."
+                    orbState="working"
+                    variant="primary"
+                    disabled={!approved}
+                  >
                     {detail.etsy_listing_id ? 'Re-push updates to Etsy' : 'Push to Etsy as draft'}
                   </PendingSubmit>
                 </div>
+                {!approved && <p className="field-note">Approve the copy to push these edits.</p>}
               </ActionForm>
             </div>
           )}
