@@ -5,7 +5,7 @@ import { getDesignDetail, getPhotoPath } from '@/lib/catalog/catalog'
 import { createDraft } from '@/lib/catalog/drafts'
 import { imageToApiBlock } from '@/lib/images/prepare'
 import { ListingDraftSchema, validateEtsyRules, type ListingDraft } from './schema'
-import { buildSystemPrompt, buildUserPrompt } from './prompt'
+import { buildSystemPrompt, buildUserPrompt, type CatalogPriceRef } from './prompt'
 import { computeCostUsd } from './prices'
 
 export type ApiImageBlock = Awaited<ReturnType<typeof imageToApiBlock>>
@@ -51,6 +51,21 @@ export function createClaudeWriter(model?: string): ListingWriter {
   }
 }
 
+// Ed's suggestion (2026-07-24): the writer should see what the rest of the
+// catalog already sells for, so prices cohere instead of being per-listing
+// model guesses.
+export function loadCatalogPriceContext(db: Db, excludeDesignId: number): CatalogPriceRef[] {
+  return db
+    .prepare(`
+      SELECT ds.name, ds.family, CAST(json_extract(d.final_json, '$.price_usd') AS REAL) AS price_usd
+      FROM drafts d
+      JOIN designs ds ON ds.design_id = d.design_id
+      WHERE d.status = 'approved' AND d.final_json IS NOT NULL AND d.design_id != ?
+      ORDER BY ds.family, ds.name
+    `)
+    .all(excludeDesignId) as CatalogPriceRef[]
+}
+
 export async function generateDraft(
   db: Db,
   writer: ListingWriter,
@@ -81,7 +96,7 @@ export async function generateDraft(
   }
 
   const system = buildSystemPrompt()
-  const user = buildUserPrompt(detail)
+  const user = buildUserPrompt(detail, loadCatalogPriceContext(db, designId))
 
   let totalIn = 0
   let totalOut = 0

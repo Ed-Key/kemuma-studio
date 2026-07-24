@@ -42,13 +42,28 @@ export function buildSystemPrompt(): string {
   ].join('\n')
 }
 
-export function buildUserPrompt(input: WriterDesignInput): string {
+export interface CatalogPriceRef {
+  name: string
+  family: string
+  price_usd: number
+}
+
+export function buildUserPrompt(input: WriterDesignInput, catalogPrices: CatalogPriceRef[] = []): string {
   const pieces = input.pieces
     .map(
       (p) =>
         `- colorway ${p.colorway}: ${p.height_in}"H x ${p.width_in}"W x ${p.depth_in}"D, ${p.weight_lb} lb, quantity ${p.quantity}`
     )
     .join('\n')
+  const priceContext =
+    catalogPrices.length > 0
+      ? [
+          '',
+          'Current approved catalog prices, for pricing coherence (products of the same family and',
+          'size should carry the same price unless this piece clearly justifies a difference):',
+          ...catalogPrices.map((p) => `- ${p.name} (${p.family}): $${p.price_usd}`),
+        ].join('\n')
+      : ''
   return [
     `Write the Etsy listing for this design. The attached photos show the actual pieces.`,
     '',
@@ -57,6 +72,7 @@ export function buildUserPrompt(input: WriterDesignInput): string {
     input.notes ? `Notes: ${input.notes}` : '',
     'Measured pieces:',
     pieces,
+    priceContext,
   ]
     .filter(Boolean)
     .join('\n')

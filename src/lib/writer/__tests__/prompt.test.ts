@@ -21,3 +21,20 @@ describe('prompts', () => {
     expect(u).toMatch(/4\.5/)
   })
 })
+
+describe('catalog price context', () => {
+  it('lists approved prices when provided', async () => {
+    const { buildUserPrompt } = await import('@/lib/writer/prompt')
+    const u = buildUserPrompt(
+      {
+        name: 'Etched Coaster Set (Tan Gold)',
+        family: 'coaster set',
+        notes: null,
+        pieces: [{ colorway: 'tan gold', height_in: 3, width_in: 4.5, depth_in: 4.5, weight_lb: 7, quantity: 1 }],
+      },
+      [{ name: 'Etched Coaster Set (Blue)', family: 'coaster set', price_usd: 55 }]
+    )
+    expect(u).toMatch(/pricing coherence/)
+    expect(u).toMatch(/Etched Coaster Set \(Blue\) \(coaster set\): \$55/)
+  })
+})
