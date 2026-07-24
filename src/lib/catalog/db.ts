@@ -109,4 +109,8 @@ function migrate(db: Db): void {
     db.exec('ALTER TABLE drafts ADD COLUMN usage_json TEXT')
     db.exec('ALTER TABLE drafts ADD COLUMN cost_usd REAL')
   }
+  const cardCols = (db.prepare('PRAGMA table_info(dimension_cards)').all() as Array<{ name: string }>).map((c) => c.name)
+  if (!cardCols.includes('etsy_uploaded_at')) {
+    db.exec('ALTER TABLE dimension_cards ADD COLUMN etsy_uploaded_at TEXT')
+  }
 }

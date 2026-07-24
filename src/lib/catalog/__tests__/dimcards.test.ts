@@ -7,6 +7,7 @@ import { createDesign, addPiece, addPhoto, listEvents } from '@/lib/catalog/cata
 import {
   createDimensionCard, getDimensionCard, listDimensionCardsForDesign,
   approveDimensionCard, rejectDimensionCard, latestApprovedCardForDesign,
+  markCardUploaded,
 } from '@/lib/catalog/dimcards'
 
 function tempDbPath(): string {
@@ -61,5 +62,14 @@ describe('dimension cards', () => {
   it('returns null when nothing is approved', () => {
     card()
     expect(latestApprovedCardForDesign(db, designId)).toBeNull()
+  })
+
+  it('marks a card as uploaded to etsy exactly once', () => {
+    const a = card()
+    expect(getDimensionCard(db, a)!.etsy_uploaded_at).toBeNull()
+    markCardUploaded(db, a)
+    const after = getDimensionCard(db, a)!
+    expect(after.etsy_uploaded_at).toBeTruthy()
+    expect(listEvents(db).some((e) => e.type === 'dimcard.attached')).toBe(true)
   })
 })

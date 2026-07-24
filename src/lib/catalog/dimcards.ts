@@ -12,6 +12,7 @@ export interface DimensionCardRecord {
   width_in: number
   status: 'candidate' | 'approved' | 'rejected'
   created_at: string
+  etsy_uploaded_at: string | null
 }
 
 export function createDimensionCard(
@@ -59,4 +60,9 @@ export function latestApprovedCardForDesign(db: Db, designId: number): Dimension
     )
     .get(designId) as DimensionCardRecord | undefined
   return row ?? null
+}
+
+export function markCardUploaded(db: Db, cardId: number): void {
+  db.prepare("UPDATE dimension_cards SET etsy_uploaded_at = datetime('now') WHERE card_id = ?").run(cardId)
+  logEvent(db, 'dimcard.attached', { card_id: cardId })
 }
