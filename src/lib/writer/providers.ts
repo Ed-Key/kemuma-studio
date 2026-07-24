@@ -18,6 +18,16 @@ export function bakeoffSpecs(env?: string): string[] {
   return raw.split(',').map((s) => s.trim()).filter(Boolean)
 }
 
+// The studio's default writer. Ed blind-picked gemini-2.5-flash over opus and
+// grok in the 2026-07-24 bake-off, and it costs about $0.002 per draft against
+// opus at $0.154, so the taste winner is also the cheap one. Override with
+// WRITER_MODEL in .env.local (e.g. "anthropic:claude-opus-4-8").
+export const DEFAULT_WRITER_SPEC = 'gemini:gemini-2.5-flash'
+
+export function defaultWriter(): ListingWriter {
+  return createWriterFor(process.env.WRITER_MODEL || DEFAULT_WRITER_SPEC)
+}
+
 export function createWriterFor(spec: string): ListingWriter {
   const { provider, model } = parseModelSpec(spec)
   if (provider === 'anthropic') return createClaudeWriter(model)

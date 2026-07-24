@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { approveDraft, latestDraftForDesign } from '@/lib/catalog/drafts'
-import { createClaudeWriter, generateDraft } from '@/lib/writer/generate'
+import { generateDraft } from '@/lib/writer/generate'
+import { defaultWriter } from '@/lib/writer/providers'
 import { ListingDraftSchema, validateEtsyRules } from '@/lib/writer/schema'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import type { ActionResult } from '../../../components/action-result'
@@ -15,7 +16,7 @@ function errText(err: unknown): string {
 export async function generateDraftAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const designId = Number(formData.get('design_id'))
-    await generateDraft(getCatalogDb(), createClaudeWriter(), designId)
+    await generateDraft(getCatalogDb(), defaultWriter(), designId)
     revalidatePath(`/designs/${designId}/draft`)
     return { ok: true, message: 'Listing copy written.' }
   } catch (err) {
