@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { getCatalogDb, dataDir } from '@/lib/catalog/instance'
 import { approveStagedImage, rejectStagedImage, DESTINATIONS, type Destination } from '@/lib/catalog/staged'
-import { createClaudeArtDirector } from '@/lib/staging/direct'
+import { defaultArtDirector } from '@/lib/staging/direct-openai'
 import { runStaging } from '@/lib/staging/stage'
 import type { ActionResult } from '../../../components/action-result'
 
@@ -21,7 +21,7 @@ export async function stageDesignAction(_prev: ActionResult | null, formData: Fo
     if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
     const ids = await runStaging(
       getCatalogDb(),
-      { artDirector: createClaudeArtDirector(), fetchFn: fetch, apiKey },
+      { artDirector: defaultArtDirector(), fetchFn: fetch, apiKey },
       {
         designId,
         dataDir: dataDir(),
