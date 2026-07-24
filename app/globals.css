@@ -310,60 +310,19 @@ p {
   opacity: 0.75;
 }
 
-/* Liquid silver: a cool brushed-steel face with a specular highlight that
-   drifts across it. Full-surface (not a rim), dark ink for contrast. The top
-   sheen + bottom shade layer is static; the steel layer animates its position.
-   Hand-rolled CSS so it is always silver, never a rainbow, and never bleeds. */
+/* Primary buttons are a plain dark pill; the metal-fx silver ring (added by
+   MetalButton) supplies the metal, reading against this dark face exactly like
+   the package playground's "Upgrade to Pro" reference. No CSS metal face. */
 .btn--primary {
-  color: #101013;
-  border-color: #9a9ea6;
-  background-color: #8b8f97;
-  background-image:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.42) 0%,
-      rgba(255, 255, 255, 0) 46%,
-      rgba(0, 0, 0, 0.22) 100%
-    ),
-    linear-gradient(
-      100deg,
-      #6d707880 0%,
-      #9fa3ab 26%,
-      #eceef1 46%,
-      #a6aab2 66%,
-      #74777f 100%
-    );
-  background-size: 100% 100%, 260% 100%;
-  background-position: 0 0, 0% 0;
-  background-repeat: no-repeat;
-  animation: silver-drift 7s linear infinite;
-  transition: filter 0.2s ease, border-color 0.2s ease;
-}
-
-@keyframes silver-drift {
-  from {
-    background-position: 0 0, 0% 0;
-  }
-  to {
-    background-position: 0 0, 100% 0;
-  }
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .btn--primary:hover {
-  filter: brightness(1.07);
-  border-color: #c4c8d0;
-}
-
-.btn--primary:disabled {
-  animation: none;
-  filter: saturate(0.4) brightness(0.72);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .btn--primary {
-    animation: none;
-    background-position: 0 0, 50% 0;
-  }
+  background: var(--surface);
+  border-color: #34343a;
 }
 
 .btn--ghost {
