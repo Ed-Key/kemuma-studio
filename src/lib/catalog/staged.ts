@@ -1,0 +1,106 @@
+import type { Db } from './db'
+import { logEvent } from './catalog'
+
+// AI-staged marketing images. Deliberately disconnected from src/lib/etsy:
+// Etsy's Creativity Standards require real photographs in listing galleries,
+// so staged images only ever ship to marketing destinations.
+export const DESTINATIONS = ['social', 'pinterest', 'storefront', 'storyboard'] as const
+export type Destination = (typeof DESTINATIONS)[number]
+
+export interface StagedImageRecord {
+  staged_id: number
+  design_id: number
+  scene_key: string
+  source_photo_id: number
+  prompt: string
+  file_path: string
+  status: 'candidate' | 'approved' | 'rejected'
+  destination: Destination | null
+  model: string
+  cost_usd: number | null
+  created_at: string
+}
+
+export function createStagedImage(
+  db: Db,
+  input: {
+    design_id: number
+    scene_key: string
+    source_photo_id: number
+    prompt: string
+    file_path: string
+    model: string
+    cost_usd?: number | null
+  }
+): number {
+  const res = db
+    .prepare(`
+      INSERT INTO staged_images (design_id, scene_key, source_photo_id, prompt, file_path, model, cost_usd)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      input.design_id,
+      input.scene_key,
+      input.source_photo_id,
+      input.prompt,
+      input.file_path,
+      input.model,
+      input.cost_usd ?? null
+    )
+  const id = Number(res.lastInsertRowid)
+  logEvent(db, 'stage.generated', {
+    staged_id: id,
+    design_id: input.design_id,
+    scene_key: input.scene_key,
+    cost_usd: input.cost_usd ?? null,
+  })
+  return id
+}
+
+export function getStagedImage(db: Db, stagedId: number): StagedImageRecord | null {
+  const row = db.prepare('SELECT * FROM staged_images WHERE staged_id = ?').get(stagedId) as
+    | StagedImageRecord
+    | undefined
+  return row ?? null
+}
+
+export function listStagedForDesign(db: Db, designId: number): StagedImageRecord[] {
+  return db
+    .prepare('SELECT * FROM staged_images WHERE design_id = ? ORDER BY staged_id DESC')
+    .all(designId) as StagedImageRecord[]
+}
+
+export function sceneUsageForDesign(db: Db, designId: number): Record<string, number> {
+  const rows = db
+    .prepare('SELECT scene_key, COUNT(*) AS n FROM staged_images WHERE design_id = ? GROUP BY scene_key')
+    .all(designId) as Array<{ scene_key: string; n: number }>
+  return Object.fromEntries(rows.map((r) => [r.scene_key, r.n]))
+}
+
+export function approveStagedImage(db: Db, input: { staged_id: number; destination: Destination }): void {
+  if (!DESTINATIONS.includes(input.destination)) {
+    throw new Error(`unknown destination "${input.destination}"`)
+  }
+  db.prepare("UPDATE staged_images SET status = 'approved', destination = ? WHERE staged_id = ?").run(
+    input.destination,
+    input.staged_id
+  )
+  logEvent(db, 'stage.approved', { staged_id: input.staged_id, destination: input.destination })
+}
+
+export function rejectStagedImage(db: Db, stagedId: number): void {
+  db.prepare("UPDATE staged_images SET status = 'rejected', destination = NULL WHERE staged_id = ?").run(stagedId)
+  logEvent(db, 'stage.rejected', { staged_id: stagedId })
+}
+
+export function listApprovedImages(db: Db): Array<StagedImageRecord & { design_name: string }> {
+  return db
+    .prepare(`
+      SELECT s.*, d.name AS design_name
+      FROM staged_images s
+      JOIN designs d ON d.design_id = s.design_id
+      WHERE s.status = 'approved'
+      ORDER BY s.destination, s.staged_id DESC
+    `)
+    .all() as Array<StagedImageRecord & { design_name: string }>
+}

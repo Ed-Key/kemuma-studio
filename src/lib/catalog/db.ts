@@ -69,6 +69,21 @@ function migrate(db: Db): void {
       model TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS staged_images (
+      staged_id INTEGER PRIMARY KEY,
+      design_id INTEGER NOT NULL REFERENCES designs(design_id),
+      scene_key TEXT NOT NULL,
+      source_photo_id INTEGER NOT NULL REFERENCES photos(photo_id),
+      prompt TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'candidate'
+        CHECK (status IN ('candidate', 'approved', 'rejected')),
+      destination TEXT
+        CHECK (destination IN ('social', 'pinterest', 'storefront', 'storyboard')),
+      model TEXT NOT NULL,
+      cost_usd REAL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `)
   const draftCols = (db.prepare('PRAGMA table_info(drafts)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!draftCols.includes('usage_json')) {
