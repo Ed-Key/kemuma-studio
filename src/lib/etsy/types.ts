@@ -64,6 +64,6 @@ export interface InventoryBody {
   products: Array<{
     sku?: string
     property_values: Array<{ property_id: number; property_name: string; values: string[] }>
-    offerings: Array<{ price: number; quantity: number; is_enabled: boolean }>
+    offerings: Array<{ price: number; quantity: number; is_enabled: boolean; readiness_state_id: number }>
   }>
 }

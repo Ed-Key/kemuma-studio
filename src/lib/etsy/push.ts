@@ -26,12 +26,15 @@ export interface PushResult {
 
 export function buildInventoryProducts(
   pieces: Array<{ colorway: string; quantity: number }>,
-  price: number
+  price: number,
+  readinessStateId: number
 ): InventoryBody {
   return {
     products: pieces.map((p) => ({
       property_values: [{ property_id: 513, property_name: 'Colorway', values: [p.colorway] }],
-      offerings: [{ price, quantity: p.quantity, is_enabled: true }],
+      // Live-API discovery 2026-07-24: etsy rejects offerings without a
+      // readiness state ("All offerings need readiness state").
+      offerings: [{ price, quantity: p.quantity, is_enabled: true, readiness_state_id: readinessStateId }],
     })),
   }
 }
@@ -122,23 +125,6 @@ export async function pushDraftToEtsy(
       }
     }
 
-    const colorways = new Map<string, number>()
-    for (const p of detail.pieces) colorways.set(p.colorway, (colorways.get(p.colorway) ?? 0) + p.quantity)
-    if (colorways.size >= 2) {
-      try {
-        await gateway.updateListingInventory(
-          listingId,
-          buildInventoryProducts(
-            Array.from(colorways, ([colorway, qty]) => ({ colorway, quantity: qty })),
-            draft.price_usd
-          )
-        )
-        variationsSet = true
-      } catch (err) {
-        const body = err instanceof EtsyApiError ? err.body : String(err)
-        warnings.push(`variations failed (etsy said: ${body}); fix in the discovery loop`)
-      }
-    }
   } else {
     await gateway.updateListing(me.shop_id, listingId, {
       title: draft.title,
@@ -153,7 +139,28 @@ export async function pushDraftToEtsy(
       item_height: height,
       item_dimensions_unit: 'in',
     })
-    warnings.push('update mode: images and variations not re-pushed')
+    warnings.push('update mode: images not re-pushed')
+  }
+
+  // Variations run for both create and update so the discovery loop can
+  // retry them on an existing listing (the inventory PUT is idempotent).
+  const colorways = new Map<string, number>()
+  for (const p of detail.pieces) colorways.set(p.colorway, (colorways.get(p.colorway) ?? 0) + p.quantity)
+  if (colorways.size >= 2) {
+    try {
+      await gateway.updateListingInventory(
+        listingId,
+        buildInventoryProducts(
+          Array.from(colorways, ([colorway, qty]) => ({ colorway, quantity: qty })),
+          draft.price_usd,
+          readiness[0].readiness_state_id
+        )
+      )
+      variationsSet = true
+    } catch (err) {
+      const body = err instanceof EtsyApiError ? err.body : String(err)
+      warnings.push(`variations failed (etsy said: ${body}); fix in the discovery loop`)
+    }
   }
 
   markDesignPiecesListed(db, designId)

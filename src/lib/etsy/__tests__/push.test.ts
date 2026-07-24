@@ -58,11 +58,11 @@ function setup() {
 }
 
 describe('buildInventoryProducts', () => {
-  it('builds one product per colorway with the shared price', () => {
-    const body = buildInventoryProducts([{ colorway: 'blue', quantity: 1 }, { colorway: 'rose', quantity: 2 }], 58)
+  it('builds one product per colorway with the shared price and readiness state', () => {
+    const body = buildInventoryProducts([{ colorway: 'blue', quantity: 1 }, { colorway: 'rose', quantity: 2 }], 58, 3)
     expect(body.products).toHaveLength(2)
     expect(body.products[0].property_values[0]).toEqual({ property_id: 513, property_name: 'Colorway', values: ['blue'] })
-    expect(body.products[1].offerings[0]).toEqual({ price: 58, quantity: 2, is_enabled: true })
+    expect(body.products[1].offerings[0]).toEqual({ price: 58, quantity: 2, is_enabled: true, readiness_state_id: 3 })
   })
 })
 
