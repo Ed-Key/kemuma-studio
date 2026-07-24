@@ -54,11 +54,17 @@ function fakeGateway(overrides: Partial<EtsyGateway> = {}): EtsyGateway {
 async function seed(
   db: Db,
   dataDir: string,
-  opts: { colorways: string[]; approved?: boolean; family?: string }
+  opts: {
+    colorways: string[]
+    approved?: boolean
+    family?: string
+    dims?: { height_in: number; width_in: number; depth_in: number }
+  }
 ) {
   const designId = createDesign(db, { family: opts.family ?? 'coaster set', name: 'Etched Coaster Set' })
+  const d = opts.dims ?? { height_in: 3, width_in: 4.5, depth_in: 4.5 }
   for (const [i, colorway] of opts.colorways.entries()) {
-    const pieceId = addPiece(db, { design_id: designId, colorway, height_in: 3, width_in: 4.5, depth_in: 4.5, weight_lb: 3, quantity: 1 })
+    const pieceId = addPiece(db, { design_id: designId, colorway, ...d, weight_lb: 3, quantity: 1 })
     const photoDir = path.join(dataDir, 'photos', String(pieceId))
     await mkdir(photoDir, { recursive: true })
     const file = path.join(photoDir, '0.jpg')
@@ -75,6 +81,41 @@ function setup() {
   const db = openDb(path.join(dataDir, 'catalog.sqlite'))
   return { db, dataDir }
 }
+
+describe('parcel dimensions', () => {
+  // Live-confirmed 2026-07-24: Etsy rejects a create whose item_length is not the
+  // longest side with shipping_profile_no_domestic_option. Tall carvings (6in high,
+  // 2in deep) tripped it; flat coaster sets never did, which hid the bug.
+  it('sends item_length as the longest side for a tall piece', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, {
+      colorways: ['brown'],
+      dims: { height_in: 6, width_in: 2.5, depth_in: 2 },
+    })
+    const gw = fakeGateway()
+    await pushDraftToEtsy(db, gw, designId, dataDir)
+    const input = (gw.createDraftListing as ReturnType<typeof vi.fn>).mock.calls[0][1]
+    expect(input.item_length).toBe(6)
+    expect(input.item_width).toBe(2.5)
+    expect(input.item_height).toBe(2)
+    expect(input.item_length).toBeGreaterThanOrEqual(input.item_width)
+    expect(input.item_width).toBeGreaterThanOrEqual(input.item_height)
+  })
+
+  it('keeps the longest side as length on update too', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, {
+      colorways: ['brown'],
+      dims: { height_in: 8, width_in: 3, depth_in: 2 },
+    })
+    const gw = fakeGateway()
+    await pushDraftToEtsy(db, gw, designId, dataDir)
+    await pushDraftToEtsy(db, gw, designId, dataDir)
+    const patch = (gw.updateListing as ReturnType<typeof vi.fn>).mock.calls[0][2]
+    expect(patch.item_length).toBe(8)
+    expect(patch.item_height).toBe(2)
+  })
+})
 
 describe('buildInventoryProducts', () => {
   it('builds one product per colorway with the shared price and readiness state', () => {

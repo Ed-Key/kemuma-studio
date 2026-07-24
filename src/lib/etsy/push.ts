@@ -71,6 +71,12 @@ export async function pushDraftToEtsy(
   const height = Math.max(...detail.pieces.map((p) => p.height_in))
   const width = Math.max(...detail.pieces.map((p) => p.width_in))
   const depth = Math.max(...detail.pieces.map((p) => p.depth_in))
+  // Shipping dimensions describe the PARCEL, not the piece's own orientation, and
+  // Etsy requires item_length to be the longest side. Mapping length to the piece's
+  // depth made tall carvings send their shortest side as length, which Etsy rejects
+  // as shipping_profile_no_domestic_option (live-confirmed 2026-07-24: the same
+  // payload succeeds once the sides are sorted).
+  const [parcelLength, parcelWidth, parcelHeight] = [height, width, depth].sort((a, b) => b - a)
 
   const me = await gateway.getMe()
   const profiles = await gateway.getShippingProfiles(me.shop_id)
@@ -100,9 +106,9 @@ export async function pushDraftToEtsy(
       readiness_state_id: readiness[0].readiness_state_id,
       item_weight: weight,
       item_weight_unit: 'lb',
-      item_length: depth,
-      item_width: width,
-      item_height: height,
+      item_length: parcelLength,
+      item_width: parcelWidth,
+      item_height: parcelHeight,
       item_dimensions_unit: 'in',
       tags: draft.tags.join(','),
       materials: draft.materials.join(','),
@@ -136,9 +142,9 @@ export async function pushDraftToEtsy(
       price: draft.price_usd,
       item_weight: weight,
       item_weight_unit: 'lb',
-      item_length: depth,
-      item_width: width,
-      item_height: height,
+      item_length: parcelLength,
+      item_width: parcelWidth,
+      item_height: parcelHeight,
       item_dimensions_unit: 'in',
     })
     warnings.push('update mode: images not re-pushed')
