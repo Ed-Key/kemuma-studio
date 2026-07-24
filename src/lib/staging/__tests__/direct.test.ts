@@ -50,6 +50,17 @@ describe('director prompts', () => {
     expect(text).toContain('light-oak coffee table')
     expect(text).toMatch(/count the pieces visible/i)
   })
+
+  it('appends owner staging notes when present', () => {
+    const base = {
+      name: 'Canoe Trinket Dish', family: 'trinket dish', colorway: 'maroon',
+      height_in: 2, width_in: 8, depth_in: 3, quantity: 1, scene: getScene('entry-console'),
+    }
+    expect(buildDirectorUserText(base)).not.toMatch(/staging notes/i)
+    expect(buildDirectorUserText({ ...base, stagingNotes: 'jewelry catch-all' })).toMatch(
+      /Owner's staging notes for this design: jewelry catch-all/
+    )
+  })
 })
 
 import { VariedArtDirectionSchema, buildVarianceDirectorUserText } from '@/lib/staging/direct'

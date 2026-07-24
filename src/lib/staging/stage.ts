@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import type { Db } from '@/lib/catalog/db'
 import { getDesignDetail, getPhotoPath } from '@/lib/catalog/catalog'
+import { stagingNotesForDesign } from '@/lib/catalog/chats'
 import { createStagedImage, sceneUsageForDesign } from '@/lib/catalog/staged'
 import { imageToApiBlock } from '@/lib/images/prepare'
 import { computeCostUsd } from '@/lib/writer/prices'
@@ -9,6 +10,7 @@ import { getScene, pickScene } from './scenes'
 import { assembleStagingPrompt, validateStagingPrompt } from './prompt'
 import { buildDirectorUserText, buildVarianceDirectorUserText, type ArtDirector } from './direct'
 import { generateStagedImages, prepareReference, GPT_IMAGE_MODEL } from './images-api'
+import { assemblePlanPrompt, validatePlan, type StagingPlan } from './plan'
 
 export async function runStaging(
   db: Db,
@@ -45,6 +47,7 @@ export async function runStaging(
     depth_in: piece.depth_in,
     quantity: piece.quantity,
     scene,
+    stagingNotes: stagingNotesForDesign(db, input.designId) ?? undefined,
   }
 
   const outDir = path.join(input.dataDir, 'staged', String(input.designId))
@@ -161,4 +164,49 @@ export async function runStaging(
     batch.images.map(() => prompt),
     costPerImage
   )
+}
+
+export async function runPlannedBatch(
+  db: Db,
+  deps: { fetchFn: typeof fetch; apiKey: string },
+  input: { designId: number; dataDir: string; plan: StagingPlan }
+): Promise<number[]> {
+  const errors = validatePlan(db, input.designId, input.plan)
+  if (errors.length > 0) throw new Error(`plan failed validation: ${errors.join('; ')}`)
+
+  const photoPaths = input.plan.reference_photo_ids
+    .map((id) => getPhotoPath(db, id))
+    .filter((p): p is string => p !== null)
+  if (photoPaths.length === 0) throw new Error('no readable reference photos')
+  const references = await Promise.all(photoPaths.map((p) => prepareReference(p, input.plan.size)))
+  const prompt = assemblePlanPrompt(input.plan)
+
+  const batch = await generateStagedImages(deps.fetchFn, deps.apiKey, {
+    references,
+    prompt,
+    size: input.plan.size,
+    n: input.plan.n,
+  })
+
+  const outDir = path.join(input.dataDir, 'staged', String(input.designId))
+  await mkdir(outDir, { recursive: true })
+  const stamp = Date.now()
+  const costPerImage = batch.cost_usd / batch.images.length
+  const ids: number[] = []
+  for (const [i, image] of batch.images.entries()) {
+    const filePath = path.join(outDir, `chat-${stamp}-${i}.png`)
+    await writeFile(filePath, image)
+    ids.push(
+      createStagedImage(db, {
+        design_id: input.designId,
+        scene_key: 'chat',
+        source_photo_id: input.plan.reference_photo_ids[0],
+        prompt,
+        file_path: filePath,
+        model: GPT_IMAGE_MODEL,
+        cost_usd: costPerImage,
+      })
+    )
+  }
+  return ids
 }

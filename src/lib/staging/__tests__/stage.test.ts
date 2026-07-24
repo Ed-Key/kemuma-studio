@@ -4,11 +4,13 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import sharp from 'sharp'
 import { openDb, type Db } from '@/lib/catalog/db'
-import { createDesign, addPiece, addPhoto } from '@/lib/catalog/catalog'
+import { createDesign, addPiece, addPhoto, getDesignDetail } from '@/lib/catalog/catalog'
+import { getOrCreateChatForDesign, setStagingNotes } from '@/lib/catalog/chats'
 import { listStagedForDesign } from '@/lib/catalog/staged'
-import { runStaging } from '@/lib/staging/stage'
+import { runStaging, runPlannedBatch } from '@/lib/staging/stage'
 import type { ArtDirector } from '@/lib/staging/direct'
 import type { ArtDirection } from '@/lib/staging/prompt'
+import type { StagingPlan } from '@/lib/staging/plan'
 
 const goodDirection: ArtDirection = {
   subject_and_count:
@@ -212,5 +214,66 @@ describe('runStaging', () => {
     expect(counter.calls).toBe(1)
     expect(counter.ns).toEqual([4])
     expect(director.variedCalls).toBe(0)
+  })
+
+  const chatPlan = (photoId: number): StagingPlan => ({
+    scene: 'Photorealistic editorial product photograph on a dresser with a thin gold chain draped over the rim.',
+    lighting:
+      "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination with directionally consistent contact shadows on the dresser.",
+    subject_and_count: 'Image 1 is the only product reference. Show exactly one coaster set of exactly four coasters, appearing exactly once.',
+    composition: 'Slightly left of center at realistic 3.8-inch scale.',
+    product_lock: 'Use the exact physical product from Image 1. Preserve the painted artwork. Do not restyle, redraw, smooth, or symmetrize.',
+    extra_exclusions: [],
+    size: '1536x1024',
+    reference_photo_ids: [photoId],
+    n: 4,
+  })
+
+  it('runPlannedBatch generates the planned batch under scene_key chat', async () => {
+    const pid = getDesignDetail(db, designId)!.pieces[0].photos[0].photo_id
+    const counter = { calls: 0, ns: [] as number[] }
+    const ids = await runPlannedBatch(
+      db,
+      { fetchFn: await fakeImagesFetch(counter), apiKey: 'sk-test' },
+      { designId, dataDir, plan: chatPlan(pid) }
+    )
+    expect(ids).toHaveLength(4)
+    expect(counter.ns).toEqual([4])
+    const rows = listStagedForDesign(db, designId).slice(0, 4)
+    for (const r of rows) {
+      expect(r.scene_key).toBe('chat')
+      expect(r.prompt).toContain('gold chain')
+      expect(r.prompt).toContain('never composited')
+    }
+  })
+
+  it('runPlannedBatch rejects an invalid plan', async () => {
+    const pid = getDesignDetail(db, designId)!.pieces[0].photos[0].photo_id
+    const bad = { ...chatPlan(pid), lighting: 'soft light' }
+    await expect(
+      runPlannedBatch(db, { fetchFn: await fakeImagesFetch(), apiKey: 'sk-test' }, { designId, dataDir, plan: bad })
+    ).rejects.toThrow(/never composited/)
+  })
+
+  it('preset staging passes owner notes to the art director', async () => {
+    const chat = getOrCreateChatForDesign(db, designId)
+    setStagingNotes(db, chat.chat_id, 'always show the painted faces toward camera')
+    let seenUserText = ''
+    const director: ArtDirector = {
+      label: 'claude-opus-4-8',
+      async direct(userText) {
+        seenUserText = userText
+        return { direction: goodDirection, input_tokens: 10, output_tokens: 10 }
+      },
+      async directVaried() {
+        throw new Error('not used')
+      },
+    }
+    await runStaging(
+      db,
+      { artDirector: director, fetchFn: await fakeImagesFetch(), apiKey: 'sk-test' },
+      { designId, dataDir, sceneKey: 'coffee-table' }
+    )
+    expect(seenUserText).toMatch(/painted faces toward camera/)
   })
 })

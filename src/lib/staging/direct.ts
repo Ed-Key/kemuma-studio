@@ -85,6 +85,7 @@ export function buildDirectorUserText(input: {
   depth_in: number
   quantity: number
   scene: SceneTemplate
+  stagingNotes?: string
 }): string {
   return [
     `Product: ${input.name} (${input.family}), ${input.colorway} colorway.`,
@@ -93,6 +94,7 @@ export function buildDirectorUserText(input: {
     'still stage exactly what the one reference photo shows.',
     `It will be placed in this scene: "${input.scene.label}". ${input.scene.scene}`,
     'The reference photo follows. Count the pieces visible in it and use that exact count.',
+    ...(input.stagingNotes ? [`Owner's staging notes for this design: ${input.stagingNotes}`] : []),
   ].join('\n')
 }
 
@@ -106,6 +108,7 @@ export function buildVarianceDirectorUserText(input: {
   quantity: number
   scene: SceneTemplate
   referenceCount: number
+  stagingNotes?: string
 }): string {
   return [
     `Product: ${input.name} (${input.family}), ${input.colorway} colorway.`,
@@ -117,6 +120,7 @@ export function buildVarianceDirectorUserText(input: {
     'to understand its full geometry. Count the constituent pieces and use that exact count.',
     'Write four different compositions, one per candidate image. Vary the arrangement, viewing angle,',
     'ordering, and crop between them, keeping every pose supported by what the photos show.',
+    ...(input.stagingNotes ? [`Owner's staging notes for this design: ${input.stagingNotes}`] : []),
   ].join('\n')
 }
 
