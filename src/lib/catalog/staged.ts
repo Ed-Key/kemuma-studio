@@ -18,6 +18,7 @@ export interface StagedImageRecord {
   destination: Destination | null
   model: string
   cost_usd: number | null
+  etsy_uploaded_at: string | null
   created_at: string
 }
 
@@ -103,4 +104,11 @@ export function listApprovedImages(db: Db): Array<StagedImageRecord & { design_n
       ORDER BY s.destination, s.staged_id DESC
     `)
     .all() as Array<StagedImageRecord & { design_name: string }>
+}
+
+// Owner's override (2026-07-24): scenes can ship to a listing gallery only
+// through an explicit acknowledged action; this records that it happened.
+export function markStagedUploaded(db: Db, stagedId: number): void {
+  db.prepare("UPDATE staged_images SET etsy_uploaded_at = datetime('now') WHERE staged_id = ?").run(stagedId)
+  logEvent(db, 'stage.attached', { staged_id: stagedId })
 }

@@ -113,4 +113,8 @@ function migrate(db: Db): void {
   if (!cardCols.includes('etsy_uploaded_at')) {
     db.exec('ALTER TABLE dimension_cards ADD COLUMN etsy_uploaded_at TEXT')
   }
+  const stagedCols = (db.prepare('PRAGMA table_info(staged_images)').all() as Array<{ name: string }>).map((c) => c.name)
+  if (!stagedCols.includes('etsy_uploaded_at')) {
+    db.exec('ALTER TABLE staged_images ADD COLUMN etsy_uploaded_at TEXT')
+  }
 }

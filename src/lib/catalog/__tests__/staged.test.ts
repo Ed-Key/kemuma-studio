@@ -6,7 +6,7 @@ import { openDb, type Db } from '@/lib/catalog/db'
 import { createDesign, addPiece, addPhoto, listEvents } from '@/lib/catalog/catalog'
 import {
   createStagedImage, getStagedImage, listStagedForDesign, sceneUsageForDesign,
-  approveStagedImage, rejectStagedImage, listApprovedImages, DESTINATIONS,
+  approveStagedImage, rejectStagedImage, listApprovedImages, DESTINATIONS, markStagedUploaded,
 } from '@/lib/catalog/staged'
 
 function tempDbPath(): string {
@@ -82,5 +82,13 @@ describe('staged images', () => {
     const approved = listApprovedImages(db)
     expect(approved).toHaveLength(1)
     expect(approved[0]).toMatchObject({ staged_id: a, design_name: 'Safari Sunset Coasters', destination: 'social' })
+  })
+
+  it('marks a scene as uploaded to etsy', () => {
+    const a = stage()
+    expect(getStagedImage(db, a)!.etsy_uploaded_at).toBeNull()
+    markStagedUploaded(db, a)
+    expect(getStagedImage(db, a)!.etsy_uploaded_at).toBeTruthy()
+    expect(listEvents(db).some((e) => e.type === 'stage.attached')).toBe(true)
   })
 })
