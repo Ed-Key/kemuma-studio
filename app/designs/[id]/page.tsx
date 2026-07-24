@@ -4,6 +4,7 @@ import { getDesignDetail } from '@/lib/catalog/catalog'
 import { addPieceAction, uploadPhotosAction } from '../actions'
 import ActionForm from '../../components/ActionForm'
 import PendingSubmit from '../../components/PendingSubmit'
+import PhotoPicker from '../../components/PhotoPicker'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,21 +106,13 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
                         />
                       ))}
                     </div>
-                    <ActionForm action={uploadPhotosAction} className="file-inline stack-sm">
+                    <ActionForm action={uploadPhotosAction} className="row upload-row">
                       <input type="hidden" name="piece_id" value={p.piece_id} />
                       <input type="hidden" name="design_id" value={detail.design_id} />
-                      <input
-                        type="file"
-                        name="photos"
-                        accept=".jpg,.jpeg,.png,.webp,.heic"
-                        multiple
-                        required
-                      />
-                      <div>
-                        <PendingSubmit pendingLabel="Uploading..." variant="ghost">
-                          Add photos
-                        </PendingSubmit>
-                      </div>
+                      <PhotoPicker />
+                      <PendingSubmit pendingLabel="Uploading..." variant="ghost">
+                        Upload
+                      </PendingSubmit>
                     </ActionForm>
                   </td>
                 </tr>
