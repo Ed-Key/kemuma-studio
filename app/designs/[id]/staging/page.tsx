@@ -2,10 +2,18 @@ import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { listStagedForDesign, DESTINATIONS } from '@/lib/catalog/staged'
+import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
 import { scenesForFamily, getScene } from '@/lib/staging/scenes'
 import ActionForm from '../../../components/ActionForm'
 import PendingSubmit from '../../../components/PendingSubmit'
-import { stageDesignAction, approveStagedAction, rejectStagedAction } from './actions'
+import {
+  stageDesignAction,
+  approveStagedAction,
+  rejectStagedAction,
+  generateDimensionCardAction,
+  approveDimensionCardAction,
+  rejectDimensionCardAction,
+} from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +34,7 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
     p.photos.map((ph) => ({ photo_id: ph.photo_id, colorway: p.colorway }))
   )
   const staged = listStagedForDesign(db, Number(id))
+  const dimCards = listDimensionCardsForDesign(db, Number(id))
 
   return (
     <div>
@@ -94,6 +103,66 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
             </PendingSubmit>
           </div>
         </ActionForm>
+      </div>
+
+      <div className="card section stack-sm">
+        <div className="card-title">Dimension card</div>
+        <p className="policy-note">
+          Real photo cutout with measured arrows; no AI. Approved cards are eligible for the
+          Etsy listing gallery. Use a photo showing the whole piece.
+        </p>
+        <ActionForm action={generateDimensionCardAction} className="stack-sm">
+          <input type="hidden" name="design_id" value={detail.design_id} />
+          {photos.length > 1 && (
+            <div className="photo-choice-row">
+              {photos.map((p, i) => (
+                <label key={p.photo_id} className="photo-choice">
+                  <input type="radio" name="source_photo_id" value={p.photo_id} defaultChecked={i === 0} />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/photos/${p.photo_id}`} alt={`${detail.name}, ${p.colorway}`} />
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="action-row">
+            <PendingSubmit pendingLabel="Drawing card..." orbState="working" variant="primary">
+              Generate dimension card
+            </PendingSubmit>
+          </div>
+        </ActionForm>
+        {dimCards.length > 0 && (
+          <div className="staged-grid">
+            {dimCards.map((c) => (
+              <div key={c.card_id} className="card stack-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="staged-img" src={`/api/dimcards/${c.card_id}`} alt={`${detail.name} dimensions`} />
+                <div className="meta-line mono">
+                  {c.height_in} x {c.width_in} in
+                </div>
+                {c.status === 'approved' && <span className="pill pill--ok">approved</span>}
+                {c.status === 'rejected' && <span className="pill pill--danger">rejected</span>}
+                {c.status === 'candidate' && (
+                  <div className="stack-sm">
+                    <ActionForm action={approveDimensionCardAction} className="action-row">
+                      <input type="hidden" name="design_id" value={detail.design_id} />
+                      <input type="hidden" name="card_id" value={c.card_id} />
+                      <PendingSubmit pendingLabel="Approving..." variant="primary">
+                        Approve
+                      </PendingSubmit>
+                    </ActionForm>
+                    <ActionForm action={rejectDimensionCardAction} className="action-row">
+                      <input type="hidden" name="design_id" value={detail.design_id} />
+                      <input type="hidden" name="card_id" value={c.card_id} />
+                      <PendingSubmit pendingLabel="Rejecting..." variant="ghost">
+                        Reject
+                      </PendingSubmit>
+                    </ActionForm>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="section">

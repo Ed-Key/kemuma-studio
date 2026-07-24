@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import sharp from 'sharp'
+import sharp, { type OutputInfo } from 'sharp'
 
 const execFileAsync = promisify(execFile)
 
@@ -33,7 +33,7 @@ export async function cutoutProduct(runner: CutoutRunner, srcPath: string, outPa
   const alpha = (await sharp(full).stats()).channels[3]
   if (!alpha || alpha.max === 0) throw new Error('cutout found no product in the photo')
 
-  let trimmed: { data: Buffer; info: sharp.OutputInfo }
+  let trimmed: { data: Buffer; info: OutputInfo }
   try {
     trimmed = await sharp(full).trim().toBuffer({ resolveWithObject: true })
   } catch {

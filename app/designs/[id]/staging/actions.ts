@@ -63,3 +63,54 @@ export async function rejectStagedAction(_prev: ActionResult | null, formData: F
     return { ok: false, message: 'Could not reject the image.', detail: errText(err) }
   }
 }
+
+export async function generateDimensionCardAction(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const photoRaw = String(formData.get('source_photo_id') ?? '')
+    const { rembgRunner } = await import('@/lib/dimcards/cutout')
+    const { generateDimensionCard } = await import('@/lib/dimcards/generate')
+    await generateDimensionCard(getCatalogDb(), rembgRunner, {
+      designId,
+      dataDir: dataDir(),
+      sourcePhotoId: photoRaw ? Number(photoRaw) : undefined,
+    })
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: 'Dimension card drawn from the catalog dims.' }
+  } catch (err) {
+    return { ok: false, message: 'Could not generate the dimension card.', detail: errText(err) }
+  }
+}
+
+export async function approveDimensionCardAction(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const { approveDimensionCard } = await import('@/lib/catalog/dimcards')
+    approveDimensionCard(getCatalogDb(), Number(formData.get('card_id')))
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: 'Card approved. Eligible for the Etsy listing gallery.' }
+  } catch (err) {
+    return { ok: false, message: 'Could not approve the card.', detail: errText(err) }
+  }
+}
+
+export async function rejectDimensionCardAction(
+  _prev: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const { rejectDimensionCard } = await import('@/lib/catalog/dimcards')
+    rejectDimensionCard(getCatalogDb(), Number(formData.get('card_id')))
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: 'Card rejected.' }
+  } catch (err) {
+    return { ok: false, message: 'Could not reject the card.', detail: errText(err) }
+  }
+}
