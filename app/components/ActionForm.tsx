@@ -23,12 +23,23 @@ export default function ActionForm({
       {children}
       {state && (
         <div
-          className={`banner ${state.ok ? 'banner--ok' : 'banner--danger'}`}
+          className={`banner ${
+            !state.ok
+              ? 'banner--danger'
+              : state.warnings && state.warnings.length > 0
+                ? 'banner--warn'
+                : 'banner--ok'
+          }`}
           role="status"
           aria-live="polite"
         >
           <span>{state.message}</span>
           {state.detail ? <span className="banner-detail">{state.detail}</span> : null}
+          {state.warnings?.map((w, i) => (
+            <span key={i} className="banner-detail">
+              {w}
+            </span>
+          ))}
         </div>
       )}
     </form>

@@ -6,7 +6,6 @@ import { approveDraft, latestDraftForDesign } from '@/lib/catalog/drafts'
 import { generateDraft } from '@/lib/writer/generate'
 import { defaultWriter } from '@/lib/writer/providers'
 import { ListingDraftSchema, validateEtsyRules } from '@/lib/writer/schema'
-import { getDesignDetail } from '@/lib/catalog/catalog'
 import type { ActionResult } from '../../../components/action-result'
 
 function errText(err: unknown): string {
@@ -77,13 +76,15 @@ export async function pushToEtsyAction(_prev: ActionResult | null, formData: For
       sharedSecret: cfg.sharedSecret,
       getAccessToken: () => getValidAccessToken(fetch, cfg.dataDir, cfg.keystring),
     })
-    await pushDraftToEtsy(getCatalogDb(), gateway, designId, dataDir())
+    const res = await pushDraftToEtsy(getCatalogDb(), gateway, designId, dataDir())
     revalidatePath(`/designs/${designId}/draft`)
-    const listingId = getDesignDetail(getCatalogDb(), designId)?.etsy_listing_id
     return {
       ok: true,
-      message: 'Pushed to Etsy as a draft listing.',
-      detail: listingId ? `listing ${listingId}` : undefined,
+      message: res.created ? 'Created a draft listing on Etsy.' : 'Updated the Etsy listing.',
+      detail: `listing ${res.listing_id} · ${res.images_uploaded} images · ${res.attributes_set} attributes${
+        res.variations_set ? ' · variations set' : ''
+      }`,
+      warnings: res.warnings,
     }
   } catch (err) {
     return { ok: false, message: 'Could not push to Etsy.', detail: errText(err) }

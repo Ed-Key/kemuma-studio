@@ -551,7 +551,13 @@ p {
   border-left-color: var(--danger);
 }
 
+.banner--warn {
+  border-left-color: var(--warn);
+}
+
 .banner .banner-detail {
+  display: block;
+  margin-top: 4px;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-2);

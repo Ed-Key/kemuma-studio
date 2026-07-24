@@ -1,1 +1,6 @@
-export type ActionResult = { ok: boolean; message: string; detail?: string }
+export type ActionResult = {
+  ok: boolean
+  message: string
+  detail?: string
+  warnings?: string[]
+}
