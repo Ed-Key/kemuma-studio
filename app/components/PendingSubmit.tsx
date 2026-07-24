@@ -67,7 +67,7 @@ export default function PendingSubmit({
         preset="silver"
         theme="dark"
         strength={0.81}
-        style={{ display: 'inline-flex', borderRadius: 'var(--radius)', overflow: 'hidden' }}
+        style={{ display: 'inline-flex', borderRadius: 0, overflow: 'hidden' }}
       >
         {button}
       </MetalFx>
