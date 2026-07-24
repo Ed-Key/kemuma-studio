@@ -12,7 +12,7 @@ export interface ArtDirection {
 export const BASE_EXCLUSIONS = [
   'No duplicate product and no extra matching pieces.',
   'No other soapstone or carved stone objects.',
-  'No text, labels, logos, or packaging.',
+  'No readable text anywhere in the image, including book spines, labels, logos, or packaging.',
   'No hands or people.',
 ]
 

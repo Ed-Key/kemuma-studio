@@ -43,4 +43,11 @@ describe('scene templates', () => {
     expect(() => getScene('nope')).toThrow(/unknown scene/)
     expect(() => scenesForFamily('vase')).toThrow(/no scenes/)
   })
+
+  it('never stages readable text props', () => {
+    for (const s of SCENES) {
+      expect(s.scene.toLowerCase(), s.key).not.toContain('titled')
+      if (s.scene.includes('book')) expect(s.scene, s.key).toMatch(/blank spines?/)
+    }
+  })
 })

@@ -77,7 +77,7 @@ export const SCENES: SceneTemplate[] = [
     families: ['jewelry box', 'trinket dish'],
     size: '1024x1536',
     scene:
-      'Photorealistic editorial product photograph on a small warm walnut nightstand beside a bed with rumpled ivory linen bedding softly blurred behind it. A short stack of two linen-bound books sits apart from the product as the only prop.',
+      'Photorealistic editorial product photograph on a small warm walnut nightstand beside a bed with rumpled ivory linen bedding softly blurred behind it. A short stack of two linen-bound books with blank spines sits apart from the product as the only prop.',
     lighting:
       "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: intimate warm lamplight from above camera right, soft falloff into the room, matching color temperature. Ground it with directionally consistent contact shadows on the walnut and a subtle warm bounce from the wood onto its base. Polished stone catches one small lamp highlight.",
   },
@@ -87,7 +87,7 @@ export const SCENES: SceneTemplate[] = [
     families: ['figure', 'sculpture'],
     size: '1024x1536',
     scene:
-      'Photorealistic editorial product photograph on a warm oak floating bookshelf against a soft ivory plaster wall, a few linen-bound books with muted spines blurred at the left edge, quiet reading-nook mood.',
+      'Photorealistic editorial product photograph on a warm oak floating bookshelf against a soft ivory plaster wall, a few linen-bound books with muted blank spines blurred at the left edge, quiet reading-nook mood.',
     lighting:
       "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: soft warm window light from camera right wraps its carved forms with gentle highlights and shaded far surfaces, matching color temperature. Ground it with an accurate directional contact shadow on the shelf and a faint warm bounce from the oak onto its base. Polished stone catches one soft window reflection along its curves.",
   },
@@ -97,7 +97,7 @@ export const SCENES: SceneTemplate[] = [
     families: ['figure', 'sculpture'],
     size: '1024x1536',
     scene:
-      'Photorealistic editorial product photograph on a pale travertine side table beside the arm of a natural-linen armchair in a calm reading nook, warm ivory wall behind. One closed linen-bound book lies apart from the product as the only prop.',
+      'Photorealistic editorial product photograph on a pale travertine side table beside the arm of a natural-linen armchair in a calm reading nook, warm ivory wall behind. One closed linen-bound book with a blank spine lies apart from the product as the only prop.',
     lighting:
       "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: broad soft window light from camera left with gentle neutral fill, matching color temperature across its carved surfaces. Ground it with directionally consistent contact shadows on the travertine and a faint warm bounce onto its base. Polished stone shows one understated window reflection.",
   },
