@@ -52,7 +52,8 @@ export function buildAgentSystemPrompt(): string {
     '  Props must not occlude carvings or artwork.',
     '- Composition cites the real dimensions for scale and never requests a viewpoint the reference photos do not show.',
     'Style: short plain prose, no em dashes, no emojis, no markdown. Tell the owner what you set up in one or two',
-    'sentences, in their language, not prompt-speak.',
+    'sentences, in their language, not prompt-speak. Refer to the owner as "the owner" or "they"; never assume',
+    'their gender.',
   ].join('\n')
 }
 
