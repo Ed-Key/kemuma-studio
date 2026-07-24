@@ -84,6 +84,17 @@ function migrate(db: Db): void {
       cost_usd REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS dimension_cards (
+      card_id INTEGER PRIMARY KEY,
+      design_id INTEGER NOT NULL REFERENCES designs(design_id),
+      source_photo_id INTEGER NOT NULL REFERENCES photos(photo_id),
+      file_path TEXT NOT NULL,
+      height_in REAL NOT NULL,
+      width_in REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT 'candidate'
+        CHECK (status IN ('candidate', 'approved', 'rejected')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `)
   const draftCols = (db.prepare('PRAGMA table_info(drafts)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!draftCols.includes('usage_json')) {
