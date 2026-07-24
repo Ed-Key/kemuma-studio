@@ -5,6 +5,7 @@ import { latestDraftForDesign } from '@/lib/catalog/drafts'
 import { vocabForFamily } from '@/lib/etsy/attribute-vocab'
 import { generateDraftAction, approveDraftAction, pushToEtsyAction } from './actions'
 import ActionForm from '../../../components/ActionForm'
+import DesignHeader from '../../../components/DesignHeader'
 import PendingSubmit from '../../../components/PendingSubmit'
 import TitleField from '../../../components/TitleField'
 
@@ -23,8 +24,8 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div>
-      <Link href={`/designs/${detail.design_id}`} className="backlink">
-        {detail.name}
+      <Link href="/designs" className="backlink">
+        All designs
       </Link>
 
       <div className="split">
@@ -45,15 +46,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
         </div>
 
         <div className="stack">
-          <div className="between page-head">
-            <div>
-              <h1>Listing draft</h1>
-              <p className="eyebrow">{detail.name}</p>
-            </div>
-            <Link href={`/designs/${detail.design_id}/bakeoff`} className="btn btn--ghost">
-              Blind bake-off
-            </Link>
-          </div>
+          <DesignHeader detail={detail} current="draft" />
 
           <div className="card">
             <div className="between">
@@ -181,16 +174,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
             <div className="card stack-sm">
               <div className="card-title">Etsy</div>
               {detail.etsy_listing_id ? (
-                <p className="muted">
-                  Live as draft listing {detail.etsy_listing_id}.{' '}
-                  <a
-                    href="https://www.etsy.com/your/shops/me/tools/listings/state:draft"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open drafts in Shop Manager
-                  </a>
-                </p>
+                <p className="muted">Live as draft listing {detail.etsy_listing_id}.</p>
               ) : (
                 <p className="muted">Not yet on Etsy.</p>
               )}

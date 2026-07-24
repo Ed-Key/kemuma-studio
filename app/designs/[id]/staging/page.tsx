@@ -6,6 +6,7 @@ import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
 import { getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { scenesForFamily, SCENES } from '@/lib/staging/scenes'
 import ActionForm from '../../../components/ActionForm'
+import DesignHeader from '../../../components/DesignHeader'
 import PendingSubmit from '../../../components/PendingSubmit'
 import {
   stageDesignAction,
@@ -48,13 +49,10 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
 
   return (
     <div>
-      <Link href={`/designs/${detail.design_id}`} className="backlink">
-        {detail.name}
+      <Link href="/designs" className="backlink">
+        All designs
       </Link>
-      <div className="page-head">
-        <h1>Staging</h1>
-        <p className="eyebrow">{detail.family} · AI lifestyle scenes for marketing</p>
-      </div>
+      <DesignHeader detail={detail} current="staging" />
 
       <p className="policy-note">
         Approved images ship to marketing channels only. Etsy listing galleries stay real

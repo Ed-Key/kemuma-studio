@@ -3,6 +3,7 @@ import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { addPieceAction, uploadPhotosAction } from '../actions'
 import ActionForm from '../../components/ActionForm'
+import DesignHeader from '../../components/DesignHeader'
 import PendingSubmit from '../../components/PendingSubmit'
 import PhotoPicker from '../../components/PhotoPicker'
 
@@ -36,35 +37,7 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
         All designs
       </Link>
 
-      <div className="between page-head">
-        <div>
-          <h1>{detail.name}</h1>
-          <p className="eyebrow">
-            {detail.family}
-            {detail.notes ? ` · ${detail.notes}` : ''}
-          </p>
-        </div>
-        <div className="row">
-          {detail.etsy_listing_id ? (
-            <a
-              className="pill pill--accent"
-              href="https://www.etsy.com/your/shops/me/tools/listings/state:draft"
-              target="_blank"
-              rel="noreferrer"
-            >
-              On Etsy {detail.etsy_listing_id}
-            </a>
-          ) : (
-            <span className="pill pill--none muted">Not on Etsy</span>
-          )}
-          <Link href={`/designs/${detail.design_id}/draft`} className="btn btn--ghost">
-            Listing draft
-          </Link>
-          <Link href={`/designs/${detail.design_id}/staging`} className="btn btn--ghost">
-            Staging
-          </Link>
-        </div>
-      </div>
+      <DesignHeader detail={detail} current="pieces" />
 
       <div className="card">
         <div className="card-title">Pieces</div>

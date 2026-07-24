@@ -3,6 +3,7 @@ import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { listLatestDraftPerModel } from '@/lib/catalog/drafts'
 import { chooseWinnerAction } from './actions'
+import DesignHeader from '../../../components/DesignHeader'
 import PendingSubmit from '../../../components/PendingSubmit'
 
 export const dynamic = 'force-dynamic'
@@ -25,18 +26,10 @@ export default async function BakeoffPage({ params }: { params: Promise<{ id: st
 
   return (
     <div>
-      <Link href={`/designs/${detail.design_id}/draft`} className="backlink">
-        Draft review
+      <Link href="/designs" className="backlink">
+        All designs
       </Link>
-      <div className="page-head">
-        <h1>Blind bake-off</h1>
-        <p className="eyebrow">
-          {detail.name} ·{' '}
-          {contestants.length === 0
-            ? `no unapproved drafts to compare. Run: npx tsx scripts/bakeoff.ts ${detail.design_id}`
-            : 'model names are hidden until you choose. Judge the copy.'}
-        </p>
-      </div>
+      <DesignHeader detail={detail} current="bakeoff" />
 
       {contestants.length === 0 ? (
         <p className="empty">Nothing to compare yet.</p>

@@ -177,6 +177,11 @@ p {
   margin-top: 6px;
 }
 
+.btn--ghost[aria-current='page'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .backlink {
   display: inline-block;
   color: var(--text-2);
