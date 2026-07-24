@@ -15,7 +15,8 @@
   --danger: #c96a5e;
 
   --radius: 6px;
-  --radius-pill: 999px;
+  /* Ed prefers near-square chips over rounded pills. */
+  --radius-pill: 4px;
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;

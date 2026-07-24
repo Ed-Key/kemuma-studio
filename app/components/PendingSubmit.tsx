@@ -54,18 +54,19 @@ export default function PendingSubmit({
     </button>
   )
 
-  // Restrained liquid metal on active primary buttons only. Glow disabled and
-  // overflow contained so the shader ring stays inside the button bounds (no
-  // halo smear below). The .btn--primary CSS sheen underneath is the graceful
-  // fallback if WebGL is unavailable.
+  // Animated liquid metal on active primary buttons only, per Ed's playground
+  // export (silver, strength 0.81, glow/shimmer on). overflow:hidden on the
+  // wrapper clips any halo to the button bounds so it never smears below.
+  // reflectionTargets is skipped: no primary button sits beside a meaningful
+  // sibling in our action rows, so there is nothing natural to reflect onto.
+  // The .btn--primary CSS sheen underneath is the fallback if WebGL is absent.
   if (variant === 'primary' && !disabled) {
     return (
       <MetalFx
         variant="button"
         preset="silver"
         theme="dark"
-        strength={0.6}
-        disableGlow
+        strength={0.81}
         style={{ display: 'inline-flex', borderRadius: 'var(--radius)', overflow: 'hidden' }}
       >
         {button}
