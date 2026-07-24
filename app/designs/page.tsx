@@ -10,6 +10,7 @@ export default function DesignsPage() {
   return (
     <main style={{ fontFamily: 'system-ui', padding: 40, maxWidth: 720 }}>
       <h1>Designs</h1>
+      <p><Link href="/intake">Intake new pieces →</Link></p>
       <ul>
         {designs.map((d) => (
           <li key={d.design_id}>
