@@ -115,6 +115,41 @@ export async function rejectDimensionCardAction(
   }
 }
 
+export async function attachCardToEtsyAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  try {
+    const designId = Number(formData.get('design_id'))
+    const cardId = Number(formData.get('card_id'))
+    const db = getCatalogDb()
+
+    const { getDimensionCard, markCardUploaded } = await import('@/lib/catalog/dimcards')
+    const { getDesignDetail } = await import('@/lib/catalog/catalog')
+    const card = getDimensionCard(db, cardId)
+    if (!card || card.design_id !== designId) throw new Error('card not found for this design')
+    if (card.status !== 'approved') throw new Error('approve the card first')
+    if (card.etsy_uploaded_at) throw new Error('card is already on the listing')
+    const detail = getDesignDetail(db, designId)
+    if (!detail?.etsy_listing_id) throw new Error('push the listing to Etsy first')
+
+    const { readFile } = await import('node:fs/promises')
+    const { createEtsyGateway } = await import('@/lib/etsy/gateway')
+    const { getValidAccessToken } = await import('@/lib/etsy/tokens')
+    const { etsyConfig } = await import('@/lib/etsy/config')
+    const cfg = etsyConfig()
+    const gateway = createEtsyGateway({
+      keystring: cfg.keystring,
+      sharedSecret: cfg.sharedSecret,
+      getAccessToken: () => getValidAccessToken(fetch, cfg.dataDir, cfg.keystring),
+    })
+    const me = await gateway.getMe()
+    await gateway.uploadListingImage(me.shop_id, detail.etsy_listing_id, await readFile(card.file_path), 'dimension-card.jpg', 10)
+    markCardUploaded(db, cardId)
+    revalidatePath(`/designs/${designId}/staging`)
+    return { ok: true, message: 'Card added to the Etsy listing gallery.', detail: `listing ${detail.etsy_listing_id}` }
+  } catch (err) {
+    return { ok: false, message: 'Could not add the card to the listing.', detail: errText(err) }
+  }
+}
+
 export async function chatTurnAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const designId = Number(formData.get('design_id'))

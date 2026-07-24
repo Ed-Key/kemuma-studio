@@ -17,6 +17,7 @@ import {
   chatTurnAction,
   executePlanAction,
   discardPlanAction,
+  attachCardToEtsyAction,
 } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -147,7 +148,24 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                 <div className="meta-line mono">
                   {c.height_in} x {c.width_in} in
                 </div>
-                {c.status === 'approved' && <span className="pill pill--ok">approved</span>}
+                {c.status === 'approved' && (
+                  <div className="stack-sm">
+                    <span className="pill pill--ok">approved</span>
+                    {c.etsy_uploaded_at ? (
+                      <span className="pill pill--accent">On the Etsy listing</span>
+                    ) : detail.etsy_listing_id ? (
+                      <ActionForm action={attachCardToEtsyAction} className="action-row">
+                        <input type="hidden" name="design_id" value={detail.design_id} />
+                        <input type="hidden" name="card_id" value={c.card_id} />
+                        <PendingSubmit pendingLabel="Adding to listing..." orbState="working" variant="primary">
+                          Add to Etsy listing
+                        </PendingSubmit>
+                      </ActionForm>
+                    ) : (
+                      <span className="muted">Push the listing to Etsy to attach this card.</span>
+                    )}
+                  </div>
+                )}
                 {c.status === 'rejected' && <span className="pill pill--danger">rejected</span>}
                 {c.status === 'candidate' && (
                   <div className="stack-sm">
