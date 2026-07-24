@@ -3,6 +3,9 @@ import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { latestDraftForDesign } from '@/lib/catalog/drafts'
 import { generateDraftAction, approveDraftAction, pushToEtsyAction } from './actions'
+import ActionForm from '../../../components/ActionForm'
+import PendingSubmit from '../../../components/PendingSubmit'
+import TitleField from '../../../components/TitleField'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,84 +13,168 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
   const { id } = await params
   const db = getCatalogDb()
   const detail = getDesignDetail(db, Number(id))
-  if (!detail) return <main style={{ padding: 40 }}>Design not found.</main>
+  if (!detail) return <p className="empty">Design not found.</p>
   const record = latestDraftForDesign(db, Number(id))
   const draft = record ? JSON.parse(record.final_json ?? record.generated_json) : null
   const photoIds = detail.pieces.flatMap((p) => p.photos.map((ph) => ph.photo_id)).slice(0, 6)
+  const approved = record?.status === 'approved'
 
   return (
-    <main style={{ fontFamily: 'system-ui', padding: 40, display: 'flex', gap: 32 }}>
-      <div style={{ width: 320 }}>
-        <p><Link href={`/designs/${detail.design_id}`}>← {detail.name}</Link></p>
-        {photoIds.map((pid) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={pid} src={`/api/photos/${pid}`} alt="" style={{ width: '100%', marginBottom: 8 }} />
-        ))}
-      </div>
+    <div>
+      <Link href={`/designs/${detail.design_id}`} className="backlink">
+        {detail.name}
+      </Link>
 
-      <div style={{ flex: 1, maxWidth: 640 }}>
-        <h1>Listing draft</h1>
-        <p><Link href={`/designs/${detail.design_id}/bakeoff`}>Blind bake-off →</Link></p>
-        <form action={generateDraftAction}>
-          <input type="hidden" name="design_id" value={detail.design_id} />
-          <button type="submit">{draft ? 'Regenerate' : 'Generate draft'}</button>
-          {record && <span style={{ marginLeft: 12 }}>status: {record.status} · model: {record.model}</span>}
-        </form>
+      <div className="split">
+        <div className="photo-rail">
+          {photoIds.length === 0 ? (
+            <p className="empty">No photos yet.</p>
+          ) : (
+            photoIds.map((pid) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={pid}
+                className="rail-photo"
+                src={`/api/photos/${pid}`}
+                alt={`${detail.name}, ${detail.family}`}
+              />
+            ))
+          )}
+        </div>
 
-        {draft && record && (
-          <>
-            <form action={approveDraftAction} style={{ display: 'grid', gap: 10, marginTop: 20 }}>
+        <div className="stack">
+          <div className="between page-head">
+            <div>
+              <h1>Listing draft</h1>
+              <p className="eyebrow">{detail.name}</p>
+            </div>
+            <Link href={`/designs/${detail.design_id}/bakeoff`} className="btn btn--ghost">
+              Blind bake-off
+            </Link>
+          </div>
+
+          <div className="card">
+            <div className="between">
+              <div>
+                <div className="card-title" style={{ marginBottom: 4 }}>
+                  {draft ? 'Rewrite the copy' : 'Write the copy'}
+                </div>
+                {record && (
+                  <p className="meta-line">
+                    status {record.status} · model {record.model}
+                    {record.cost_usd != null ? ` · cost $${record.cost_usd.toFixed(3)}` : ''}
+                  </p>
+                )}
+              </div>
+              <ActionForm action={generateDraftAction}>
+                <input type="hidden" name="design_id" value={detail.design_id} />
+                <PendingSubmit
+                  pendingLabel="Writing listing..."
+                  orbState="composing"
+                  variant={draft ? 'ghost' : 'primary'}
+                >
+                  {draft ? 'Regenerate' : 'Generate draft'}
+                </PendingSubmit>
+              </ActionForm>
+            </div>
+          </div>
+
+          {draft && record && (
+            <ActionForm action={approveDraftAction} className="stack">
               <input type="hidden" name="design_id" value={detail.design_id} />
               <input type="hidden" name="draft_id" value={record.draft_id} />
-              <label>Title ({draft.title.length}/140)
-                <input name="title" defaultValue={draft.title} style={{ width: '100%' }} />
-              </label>
-              <label>Description
-                <textarea name="description" defaultValue={draft.description} rows={14} style={{ width: '100%' }} />
-              </label>
-              <fieldset style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                <legend>Tags (13)</legend>
-                {draft.tags.map((t: string, i: number) => (
-                  <input key={i} name={`tag_${i}`} defaultValue={t} />
-                ))}
-              </fieldset>
-              <label>Price (USD)
-                <input name="price_usd" type="number" step="1" defaultValue={draft.price_usd} />
-              </label>
-              <label>Price justification (internal, not sent to Etsy)
-                <input name="price_justification" defaultValue={draft.price_justification ?? ''} style={{ width: '100%' }} />
-              </label>
-              <label>Materials (comma separated)
-                <input name="materials" defaultValue={draft.materials.join(', ')} style={{ width: '100%' }} />
-              </label>
-              <label>Colorway notes
-                <input name="colorway_notes" defaultValue={draft.colorway_notes} style={{ width: '100%' }} />
-              </label>
-              <button type="submit" disabled={record.status === 'approved'}>
-                {record.status === 'approved' ? 'Approved' : 'Approve'}
-              </button>
-            </form>
-            {record.status === 'approved' && (
-              <div style={{ marginTop: 20, borderTop: '1px solid #ccc', paddingTop: 12 }}>
-                {detail.etsy_listing_id ? (
-                  <p>
-                    On Etsy as draft listing {detail.etsy_listing_id}.{' '}
-                    <a href={`https://www.etsy.com/your/shops/me/tools/listings/state:draft`} target="_blank">
-                      Open drafts in Shop Manager
-                    </a>
-                  </p>
-                ) : (
-                  <p>Not yet on Etsy.</p>
-                )}
-                <form action={pushToEtsyAction}>
-                  <input type="hidden" name="design_id" value={detail.design_id} />
-                  <button type="submit">{detail.etsy_listing_id ? 'Re-push updates to Etsy' : 'Push to Etsy as draft'}</button>
-                </form>
+
+              <div className="card stack-sm">
+                <div className="card-title">Listing copy</div>
+                <TitleField defaultValue={draft.title} />
+                <label className="field">
+                  <span className="field-label">Description</span>
+                  <textarea className="textarea" name="description" defaultValue={draft.description} rows={14} />
+                </label>
               </div>
-            )}
-          </>
-        )}
+
+              <div className="card">
+                <div className="card-title">Tags</div>
+                <fieldset className="grid-3" style={{ border: 'none', padding: 0, margin: 0 }}>
+                  <legend className="field-label" style={{ marginBottom: 8 }}>
+                    13 tags
+                  </legend>
+                  {draft.tags.map((t: string, i: number) => (
+                    <input key={i} className="input input--mono" name={`tag_${i}`} defaultValue={t} aria-label={`Tag ${i + 1}`} />
+                  ))}
+                </fieldset>
+              </div>
+
+              <div className="card stack-sm">
+                <div className="card-title">Pricing</div>
+                <div className="grid-3">
+                  <label className="field">
+                    <span className="field-label">Price (USD)</span>
+                    <input className="input input--mono" name="price_usd" type="number" step="1" defaultValue={draft.price_usd} />
+                  </label>
+                </div>
+                <label className="field">
+                  <span className="field-label">Price justification</span>
+                  <input className="input" name="price_justification" defaultValue={draft.price_justification ?? ''} />
+                  <span className="field-note">Internal only. Not sent to Etsy.</span>
+                </label>
+              </div>
+
+              <div className="card stack-sm">
+                <div className="card-title">Details</div>
+                <label className="field">
+                  <span className="field-label">Materials</span>
+                  <input className="input" name="materials" defaultValue={draft.materials.join(', ')} />
+                  <span className="field-note">Comma separated.</span>
+                </label>
+                <label className="field">
+                  <span className="field-label">Colorway notes</span>
+                  <input className="input" name="colorway_notes" defaultValue={draft.colorway_notes} />
+                </label>
+              </div>
+
+              <div className="action-row">
+                <PendingSubmit
+                  pendingLabel="Approving..."
+                  orbState="working"
+                  variant="primary"
+                  disabled={approved}
+                >
+                  {approved ? 'Approved' : 'Approve'}
+                </PendingSubmit>
+              </div>
+            </ActionForm>
+          )}
+
+          {approved && (
+            <div className="card stack-sm">
+              <div className="card-title">Etsy</div>
+              {detail.etsy_listing_id ? (
+                <p className="muted">
+                  Live as draft listing {detail.etsy_listing_id}.{' '}
+                  <a
+                    href="https://www.etsy.com/your/shops/me/tools/listings/state:draft"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open drafts in Shop Manager
+                  </a>
+                </p>
+              ) : (
+                <p className="muted">Not yet on Etsy.</p>
+              )}
+              <ActionForm action={pushToEtsyAction}>
+                <input type="hidden" name="design_id" value={detail.design_id} />
+                <div className="action-row">
+                  <PendingSubmit pendingLabel="Pushing to Etsy..." orbState="working" variant="primary">
+                    {detail.etsy_listing_id ? 'Re-push updates to Etsy' : 'Push to Etsy as draft'}
+                  </PendingSubmit>
+                </div>
+              </ActionForm>
+            </div>
+          )}
+        </div>
       </div>
-    </main>
+    </div>
   )
 }
