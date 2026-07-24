@@ -157,23 +157,21 @@ describe('gateway', () => {
     ])
   })
 
-  it('puts a form-encoded listing property with its scale', async () => {
+  it('puts a scaled listing property as JSON with an empty value_ids array', async () => {
     const fetchFn = vi.fn(async () => jsonResponse({}))
-    await gatewayWith(fetchFn).updateListingProperty(42, 9, 505, { values: '3', scale_id: 347 })
+    await gatewayWith(fetchFn).updateListingProperty(42, 9, 47626759834, { values: '6', scale_id: 5 })
     const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
-    expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings/9/properties/505')
+    expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings/9/properties/47626759834')
     expect(init.method).toBe('PUT')
-    const body = new URLSearchParams(init.body as string)
-    expect(body.get('values')).toBe('3')
-    expect(body.get('scale_id')).toBe('347')
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+    // Etsy mints the value id for numeric attributes; value_ids must be present but empty.
+    expect(JSON.parse(init.body as string)).toEqual({ values: ['6'], value_ids: [], scale_id: 5 })
   })
 
-  it('puts a predefined property with value ids and names', async () => {
+  it('puts a predefined property as JSON with its value id', async () => {
     const fetchFn = vi.fn(async () => jsonResponse({}))
     await gatewayWith(fetchFn).updateListingProperty(42, 9, 200, { values: 'Blue', value_ids: [2] })
     const [, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
-    const body = new URLSearchParams(init.body as string)
-    expect(body.get('values')).toBe('Blue')
-    expect(body.get('value_ids')).toBe('2')
+    expect(JSON.parse(init.body as string)).toEqual({ values: ['Blue'], value_ids: [2] })
   })
 })

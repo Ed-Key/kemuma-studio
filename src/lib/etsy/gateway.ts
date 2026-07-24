@@ -138,11 +138,15 @@ export function createEtsyGateway(deps: {
       }))
     },
 
+    // JSON, not form: value_ids is a REQUIRED array, and numeric attributes
+    // (Height/Width/Depth) need it EMPTY so Etsy mints the value id itself.
+    // Form encoding cannot express an empty array, which failed live with
+    // "Missing input parameter: [value_ids]" (2026-07-24).
     updateListingProperty: async (shopId, listingId, propertyId, input) => {
-      await request<void>('PUT', `/shops/${shopId}/listings/${listingId}/properties/${propertyId}`, {
-        values: input.values,
-        scale_id: input.scale_id,
-        value_ids: input.value_ids?.join(','),
+      await requestJson<void>('PUT', `/shops/${shopId}/listings/${listingId}/properties/${propertyId}`, {
+        values: input.values != null ? [input.values] : [],
+        value_ids: input.value_ids ?? [],
+        ...(input.scale_id != null ? { scale_id: input.scale_id } : {}),
       })
     },
 
