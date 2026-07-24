@@ -50,6 +50,15 @@ function migrate(db: Db): void {
       type TEXT NOT NULL,
       payload TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS intakes (
+      intake_id INTEGER PRIMARY KEY,
+      dir TEXT NOT NULL,
+      photos_json TEXT NOT NULL,
+      proposal_json TEXT,
+      status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'confirmed')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS drafts (
       draft_id INTEGER PRIMARY KEY,
       design_id INTEGER NOT NULL REFERENCES designs(design_id),
