@@ -70,9 +70,10 @@ export function buildUserPrompt(input: WriterDesignInput, catalogPrices: Catalog
             return `- ${p.name} (${p.family}${dims}): $${p.price_usd}`
           }),
           'Pricing rules: find the most similar items above (same family, similar size and weight,',
-          'similar workmanship) and price consistently with them. In price_justification, name the',
-          'comparable(s) you matched; if your price differs from theirs, state exactly why this piece',
-          'earns more or less. Never leave a price unexplained.',
+          'similar workmanship) and price consistently with them. If a view_comparable tool is',
+          'available, call it on the closest comparables to see their photos before deciding.',
+          'In price_justification, name the comparable(s) you matched; if your price differs from',
+          'theirs, state exactly why this piece earns more or less. Never leave a price unexplained.',
         ].join('\n')
       : ''
   return [
