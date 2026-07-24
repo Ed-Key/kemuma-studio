@@ -64,6 +64,11 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
                   </td>
                   <td className="mono">
                     {p.height_in} x {p.width_in} x {p.depth_in} in
+                    {/estimated/i.test(p.condition_notes ?? '') && (
+                      <div>
+                        <span className="pill pill--warn">estimated</span>
+                      </div>
+                    )}
                   </td>
                   <td className="mono">{p.weight_lb} lb</td>
                   <td className="mono">{p.quantity}</td>

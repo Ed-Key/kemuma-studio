@@ -39,7 +39,11 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
   if (!detail) return <p className="empty">Design not found.</p>
   const scenes = scenesForFamily(detail.family)
   const photos = detail.pieces.flatMap((p) =>
-    p.photos.map((ph) => ({ photo_id: ph.photo_id, colorway: p.colorway }))
+    p.photos.map((ph) => ({
+      photo_id: ph.photo_id,
+      colorway: p.colorway,
+      caption: `${p.colorway} · ${p.height_in} x ${p.width_in} in`,
+    }))
   )
   const staged = listStagedForDesign(db, Number(id))
   const dimCards = listDimensionCardsForDesign(db, Number(id))
@@ -93,6 +97,7 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                     />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/api/photos/${p.photo_id}`} alt={`${detail.name}, ${p.colorway}`} />
+                    <span className="mono muted">{p.caption}</span>
                   </label>
                 ))}
               </div>
@@ -119,6 +124,12 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
           Real photo cutout with measured arrows; no AI. Approved cards are eligible for the
           Etsy listing gallery. Use a photo showing the whole piece.
         </p>
+        {detail.pieces.some((p) => /estimated/i.test(p.condition_notes ?? '')) && (
+          <p className="policy-note">
+            These measurements are still estimates. The numbers printed on the card come straight from the
+            catalog, so verify them before attaching the card to a listing.
+          </p>
+        )}
         <ActionForm action={generateDimensionCardAction} className="stack-sm">
           <input type="hidden" name="design_id" value={detail.design_id} />
           {photos.length > 1 && (
@@ -128,6 +139,7 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                   <input type="radio" name="source_photo_id" value={p.photo_id} defaultChecked={i === 0} />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/photos/${p.photo_id}`} alt={`${detail.name}, ${p.colorway}`} />
+                  <span className="mono muted">{p.caption}</span>
                 </label>
               ))}
             </div>

@@ -89,7 +89,7 @@ export function getDesignDetail(db: Db, designId: number) {
   if (!design) return null
   const pieces = db
     .prepare(`
-      SELECT piece_id, colorway, finish, height_in, width_in, depth_in, weight_lb, quantity, status
+      SELECT piece_id, colorway, finish, height_in, width_in, depth_in, weight_lb, quantity, condition_notes, status
       FROM pieces WHERE design_id = ? ORDER BY piece_id
     `)
     .all(designId) as Array<{
@@ -101,6 +101,7 @@ export function getDesignDetail(db: Db, designId: number) {
     depth_in: number
     weight_lb: number
     quantity: number
+    condition_notes: string | null
     status: string
   }>
   const photoStmt = db.prepare('SELECT photo_id, position FROM photos WHERE piece_id = ? ORDER BY position')

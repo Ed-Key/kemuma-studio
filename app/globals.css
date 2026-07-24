@@ -513,6 +513,12 @@ p {
   height: 72px;
   object-fit: cover;
 }
+.photo-choice .mono {
+  display: block;
+  font-size: 10px;
+  text-align: center;
+  padding-top: 2px;
+}
 .staged-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
