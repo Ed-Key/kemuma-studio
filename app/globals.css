@@ -482,6 +482,49 @@ p {
   margin-top: 10px;
 }
 
+/* Staging (marketing scenes) */
+.photo-choice-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.photo-choice {
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  padding: 2px;
+}
+.photo-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.photo-choice:has(input:checked) {
+  border-color: var(--accent);
+}
+.photo-choice img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+}
+.staged-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.staged-img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+}
+.policy-note {
+  color: var(--text-2);
+  font-size: 13px;
+  max-width: 640px;
+  margin-bottom: 8px;
+}
+
 /* ---- Banners ------------------------------------------------------------ */
 
 .banner {

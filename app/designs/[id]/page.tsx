@@ -60,6 +60,9 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
           <Link href={`/designs/${detail.design_id}/draft`} className="btn btn--ghost">
             Listing draft
           </Link>
+          <Link href={`/designs/${detail.design_id}/staging`} className="btn btn--ghost">
+            Staging
+          </Link>
         </div>
       </div>
 
