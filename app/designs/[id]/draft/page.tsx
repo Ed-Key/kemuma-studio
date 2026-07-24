@@ -27,6 +27,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
 
       <div style={{ flex: 1, maxWidth: 640 }}>
         <h1>Listing draft</h1>
+        <p><Link href={`/designs/${detail.design_id}/bakeoff`}>Blind bake-off →</Link></p>
         <form action={generateDraftAction}>
           <input type="hidden" name="design_id" value={detail.design_id} />
           <button type="submit">{draft ? 'Regenerate' : 'Generate draft'}</button>
