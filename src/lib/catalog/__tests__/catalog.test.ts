@@ -35,6 +35,7 @@ describe('openDb', () => {
 
 import {
   createDesign, listDesigns, getDesignDetail, addPiece, addPhoto, getPhotoPath, listEvents,
+  setDesignEtsyListingId, markDesignPiecesListed,
 } from '@/lib/catalog/catalog'
 
 describe('catalog operations', () => {
@@ -87,5 +88,21 @@ describe('catalog operations', () => {
     expect(types).toEqual(expect.arrayContaining(['design.created', 'piece.added', 'photo.added']))
     const created = listEvents(db).find((e) => e.type === 'design.created')!
     expect(JSON.parse(created.payload)).toMatchObject({ name: 'Eternity Love Knot' })
+  })
+
+  it('links an etsy listing id to a design', () => {
+    const id = createDesign(db, { family: 'coaster set', name: 'Etched Coaster Set' })
+    setDesignEtsyListingId(db, id, 12345)
+    expect(getDesignDetail(db, id)?.etsy_listing_id).toBe(12345)
+    expect(listEvents(db).some((e) => e.type === 'etsy.listing_linked')).toBe(true)
+  })
+
+  it('marks all of a design pieces listed', () => {
+    const id = createDesign(db, { family: 'coaster set', name: 'Set' })
+    addPiece(db, { design_id: id, colorway: 'blue', height_in: 3, width_in: 4, depth_in: 4, weight_lb: 3 })
+    addPiece(db, { design_id: id, colorway: 'red', height_in: 3, width_in: 4, depth_in: 4, weight_lb: 3 })
+    markDesignPiecesListed(db, id)
+    const detail = getDesignDetail(db, id)!
+    expect(detail.pieces.every((p) => p.status === 'listed')).toBe(true)
   })
 })

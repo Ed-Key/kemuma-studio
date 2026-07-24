@@ -109,3 +109,13 @@ export function getDesignDetail(db: Db, designId: number) {
     pieces: pieces.map((p) => ({ ...p, photos: photoStmt.all(p.piece_id) as Array<{ photo_id: number; position: number }> })),
   }
 }
+
+export function setDesignEtsyListingId(db: Db, designId: number, listingId: number): void {
+  db.prepare('UPDATE designs SET etsy_listing_id = ? WHERE design_id = ?').run(listingId, designId)
+  logEvent(db, 'etsy.listing_linked', { design_id: designId, etsy_listing_id: listingId })
+}
+
+export function markDesignPiecesListed(db: Db, designId: number): void {
+  db.prepare("UPDATE pieces SET status = 'listed' WHERE design_id = ?").run(designId)
+  logEvent(db, 'pieces.listed', { design_id: designId })
+}
