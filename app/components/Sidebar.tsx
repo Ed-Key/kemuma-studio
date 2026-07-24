@@ -26,6 +26,17 @@ const NAV = [
       </svg>
     ),
   },
+  {
+    href: '/marketing',
+    label: 'Marketing',
+    icon: (
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <rect x="1.5" y="2.5" width="13" height="11" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M1.5 10.5 5.5 7l3 2.5 3-2 3 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+        <circle cx="5.5" cy="5.5" r="1" fill="currentColor" />
+      </svg>
+    ),
+  },
 ]
 
 export default function Sidebar() {
