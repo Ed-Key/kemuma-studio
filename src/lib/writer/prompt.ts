@@ -52,7 +52,11 @@ export interface CatalogPriceRef {
   weight_lb: number | null
 }
 
-export function buildUserPrompt(input: WriterDesignInput, catalogPrices: CatalogPriceRef[] = []): string {
+export function buildUserPrompt(
+  input: WriterDesignInput,
+  catalogPrices: CatalogPriceRef[] = [],
+  vocab?: import('@/lib/etsy/attribute-vocab').FamilyVocab
+): string {
   const pieces = input.pieces
     .map(
       (p) =>
@@ -76,6 +80,14 @@ export function buildUserPrompt(input: WriterDesignInput, catalogPrices: Catalog
           'theirs, state exactly why this piece earns more or less. Never leave a price unexplained.',
         ].join('\n')
       : ''
+  const attrSection = vocab
+    ? [
+        '',
+        'STRUCTURED ATTRIBUTES (for Etsy search facets; choose from these exact values or omit if unsure):',
+        `- primary_color and secondary_color: one each from [${vocab.colors.join(', ')}]. Judge from the photos.`,
+        ...(vocab.artStyles ? [`- art_style: one of [${vocab.artStyles.join(', ')}].`] : []),
+      ].join('\n')
+    : ''
   return [
     `Write the Etsy listing for this design. The attached photos show the actual pieces.`,
     '',
@@ -85,6 +97,7 @@ export function buildUserPrompt(input: WriterDesignInput, catalogPrices: Catalog
     'Measured pieces:',
     pieces,
     priceContext,
+    attrSection,
   ]
     .filter(Boolean)
     .join('\n')

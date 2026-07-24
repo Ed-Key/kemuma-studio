@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildSystemPrompt, buildUserPrompt } from '@/lib/writer/prompt'
+import { vocabForFamily } from '@/lib/etsy/attribute-vocab'
 
 describe('prompts', () => {
   it('system prompt carries the provenance and voice rules', () => {
@@ -19,6 +20,16 @@ describe('prompts', () => {
     expect(u).toMatch(/Etched Coaster Set/)
     expect(u).toMatch(/blue/)
     expect(u).toMatch(/4\.5/)
+  })
+  it('lists allowed colors and art styles when vocab is provided', () => {
+    const text = buildUserPrompt(
+      { name: 'Lovers Figure', family: 'figure', notes: null, pieces: [] },
+      [],
+      vocabForFamily('figure')
+    )
+    expect(text).toMatch(/Folk & outsider/)
+    expect(text).toMatch(/primary_color/)
+    expect(text).toMatch(/Blue/)
   })
 })
 

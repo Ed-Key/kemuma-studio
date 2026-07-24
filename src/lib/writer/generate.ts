@@ -4,6 +4,7 @@ import type { Db } from '@/lib/catalog/db'
 import { getDesignDetail, getPhotoPath } from '@/lib/catalog/catalog'
 import { createDraft } from '@/lib/catalog/drafts'
 import { imageToApiBlock } from '@/lib/images/prepare'
+import { vocabForFamily } from '@/lib/etsy/attribute-vocab'
 import { ListingDraftSchema, validateEtsyRules, type ListingDraft } from './schema'
 import { buildSystemPrompt, buildUserPrompt, type CatalogPriceRef } from './prompt'
 import { computeCostUsd } from './prices'
@@ -219,7 +220,7 @@ export async function generateDraft(
 
   const comparables = loadComparables(db, designId)
   const system = buildSystemPrompt()
-  const user = buildUserPrompt(detail, comparables)
+  const user = buildUserPrompt(detail, comparables, vocabForFamily(detail.family))
 
   let totalIn = 0
   let totalOut = 0

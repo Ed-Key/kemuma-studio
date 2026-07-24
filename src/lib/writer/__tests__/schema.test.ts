@@ -18,6 +18,21 @@ describe('ListingDraftSchema', () => {
   it('rejects wrong tag count', () => {
     expect(() => ListingDraftSchema.parse({ ...valid, tags: valid.tags.slice(0, 5) })).toThrow()
   })
+  it('accepts optional attribute fields and defaults them to null-ish absence', () => {
+    const base = {
+      title: 'Vintage Soapstone Figurine',
+      description: 'd'.repeat(20),
+      tags: Array.from({ length: 13 }, (_, i) => `tag${i}`),
+      price_usd: 60,
+      price_justification: 'x',
+      materials: ['soapstone'],
+      colorway_notes: 'brown',
+    }
+    const withAttrs = ListingDraftSchema.parse({ ...base, primary_color: 'Brown', secondary_color: 'Black', art_style: 'Minimalist' })
+    expect(withAttrs.primary_color).toBe('Brown')
+    // still parses without them
+    expect(() => ListingDraftSchema.parse(base)).not.toThrow()
+  })
 })
 
 describe('validateEtsyRules', () => {

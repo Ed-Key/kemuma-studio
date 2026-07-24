@@ -8,6 +8,9 @@ export const ListingDraftSchema = z.object({
   price_justification: z.string(),
   materials: z.array(z.string()).min(1).max(13),
   colorway_notes: z.string(),
+  primary_color: z.string().nullish().describe('Etsy primary color, chosen from the allowed list in the prompt, or omitted if unsure.'),
+  secondary_color: z.string().nullish().describe('Etsy secondary color from the allowed list, or omitted.'),
+  art_style: z.string().nullish().describe('Etsy art style from the allowed list (figurines only), or omitted.'),
 })
 
 export type ListingDraft = z.infer<typeof ListingDraftSchema>
