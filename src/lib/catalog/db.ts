@@ -95,6 +95,14 @@ function migrate(db: Db): void {
         CHECK (status IN ('candidate', 'approved', 'rejected')),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS staging_chats (
+      chat_id INTEGER PRIMARY KEY,
+      design_id INTEGER NOT NULL UNIQUE REFERENCES designs(design_id),
+      messages_json TEXT NOT NULL DEFAULT '[]',
+      staging_notes TEXT,
+      pending_plan_json TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `)
   const draftCols = (db.prepare('PRAGMA table_info(drafts)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!draftCols.includes('usage_json')) {
