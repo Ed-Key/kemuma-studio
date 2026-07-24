@@ -40,6 +40,9 @@ export async function approveDraftAction(_prev: ActionResult | null, formData: F
         .map((m) => m.trim())
         .filter(Boolean),
       colorway_notes: String(formData.get('colorway_notes') ?? ''),
+      primary_color: (formData.get('primary_color') as string) || null,
+      secondary_color: (formData.get('secondary_color') as string) || null,
+      art_style: (formData.get('art_style') as string) || null,
     })
     const errors = validateEtsyRules(final)
     if (errors.length > 0) throw new Error(`fix before approving: ${errors.join('; ')}`)

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
 import { latestDraftForDesign } from '@/lib/catalog/drafts'
+import { vocabForFamily } from '@/lib/etsy/attribute-vocab'
 import { generateDraftAction, approveDraftAction, pushToEtsyAction } from './actions'
 import ActionForm from '../../../components/ActionForm'
 import PendingSubmit from '../../../components/PendingSubmit'
@@ -16,6 +17,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
   if (!detail) return <p className="empty">Design not found.</p>
   const record = latestDraftForDesign(db, Number(id))
   const draft = record ? JSON.parse(record.final_json ?? record.generated_json) : null
+  const vocab = vocabForFamily(detail.family)
   const photoIds = detail.pieces.flatMap((p) => p.photos.map((ph) => ph.photo_id)).slice(0, 6)
   const approved = record?.status === 'approved'
 
@@ -131,6 +133,35 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
                   <span className="field-label">Colorway notes</span>
                   <input className="input" name="colorway_notes" defaultValue={draft.colorway_notes} />
                 </label>
+                <div className="field">
+                  <span className="field-label">Primary color</span>
+                  <select className="select" name="primary_color" defaultValue={draft.primary_color ?? ''}>
+                    <option value="">(none)</option>
+                    {vocab.colors.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <span className="field-label">Secondary color</span>
+                  <select className="select" name="secondary_color" defaultValue={draft.secondary_color ?? ''}>
+                    <option value="">(none)</option>
+                    {vocab.colors.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                {vocab.artStyles && (
+                  <div className="field">
+                    <span className="field-label">Art style</span>
+                    <select className="select" name="art_style" defaultValue={draft.art_style ?? ''}>
+                      <option value="">(none)</option>
+                      {vocab.artStyles.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="action-row">
