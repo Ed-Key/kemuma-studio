@@ -32,6 +32,13 @@ function fakeGateway(overrides: Partial<EtsyGateway> = {}): EtsyGateway {
     updateListing: vi.fn(async () => undefined),
     uploadListingImage: vi.fn(async () => undefined),
     updateListingInventory: vi.fn(async () => undefined),
+    getPropertiesByTaxonomyId: vi.fn(async () => [
+      { property_id: 505, name: 'Height', scales: [{ scale_id: 347, display_name: 'Inches' }] },
+      { property_id: 512, name: 'Width', scales: [{ scale_id: 338, display_name: 'Inches' }] },
+      { property_id: 506, name: 'Length', scales: [{ scale_id: 350, display_name: 'Inches' }] },
+      { property_id: 511, name: 'Weight', scales: [{ scale_id: 332, display_name: 'Pounds' }] },
+    ]),
+    updateListingProperty: vi.fn(async () => undefined),
     ...overrides,
   }
 }
@@ -128,5 +135,46 @@ describe('pushDraftToEtsy', () => {
     const { db, dataDir } = setup()
     const designId = await seed(db, dataDir, { colorways: ['blue'], approved: false })
     await expect(pushDraftToEtsy(db, fakeGateway(), designId, dataDir)).rejects.toThrow(/approved/i)
+  })
+
+  it('writes dimension attributes so etsy highlights show them', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const gw = fakeGateway()
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir)
+    expect(result.attributes_set).toBe(4)
+    const calls = (gw.updateListingProperty as ReturnType<typeof vi.fn>).mock.calls
+    // seed pieces: height 3, width 4.5, depth 4.5, weight 3
+    expect(calls).toContainEqual([42, 777, 505, { values: '3', scale_id: 347 }])
+    expect(calls).toContainEqual([42, 777, 512, { values: '4.5', scale_id: 338 }])
+    expect(calls).toContainEqual([42, 777, 506, { values: '4.5', scale_id: 350 }])
+    expect(calls).toContainEqual([42, 777, 511, { values: '3', scale_id: 332 }])
+  })
+
+  it('skips missing attributes with a warning and keeps the rest', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const gw = fakeGateway({
+      getPropertiesByTaxonomyId: vi.fn(async () => [
+        { property_id: 512, name: 'Width', scales: [{ scale_id: 338, display_name: 'Inches' }] },
+      ]),
+    })
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir)
+    expect(result.attributes_set).toBe(1)
+    expect(result.warnings.join(' ')).toMatch(/Height attribute/)
+  })
+
+  it('survives per-attribute failures', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const gw = fakeGateway({
+      updateListingProperty: vi.fn(async () => {
+        throw new Error('boom')
+      }),
+    })
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir)
+    expect(result.attributes_set).toBe(0)
+    expect(result.created).toBe(true)
+    expect(result.warnings.join(' ')).toMatch(/boom/)
   })
 })

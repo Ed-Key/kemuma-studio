@@ -136,4 +136,30 @@ describe('gateway', () => {
     expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
     expect(JSON.parse(init.body as string)).toEqual(body)
   })
+
+  it('fetches taxonomy properties and unwraps results', async () => {
+    const fetchFn = vi.fn(async () =>
+      jsonResponse({
+        count: 1,
+        results: [{ property_id: 505, name: 'Height', scales: [{ scale_id: 347, display_name: 'Inches' }] }],
+      })
+    )
+    const props = await gatewayWith(fetchFn).getPropertiesByTaxonomyId(1060)
+    const [url] = fetchFn.mock.calls[0] as unknown as [string]
+    expect(url).toBe('https://api.etsy.com/v3/application/seller-taxonomy/nodes/1060/properties')
+    expect(props).toEqual([
+      { property_id: 505, name: 'Height', scales: [{ scale_id: 347, display_name: 'Inches' }] },
+    ])
+  })
+
+  it('puts a form-encoded listing property with its scale', async () => {
+    const fetchFn = vi.fn(async () => jsonResponse({}))
+    await gatewayWith(fetchFn).updateListingProperty(42, 9, 505, { values: '3', scale_id: 347 })
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings/9/properties/505')
+    expect(init.method).toBe('PUT')
+    const body = new URLSearchParams(init.body as string)
+    expect(body.get('values')).toBe('3')
+    expect(body.get('scale_id')).toBe('347')
+  })
 })

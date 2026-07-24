@@ -20,6 +20,7 @@ export interface PushResult {
   created: boolean
   images_uploaded: number
   variations_set: boolean
+  attributes_set: number
   taxonomy_name: string | null
   warnings: string[]
 }
@@ -142,6 +143,40 @@ export async function pushDraftToEtsy(
     warnings.push('update mode: images not re-pushed')
   }
 
+  // Etsy's listing-page Highlights read structured attributes, not the
+  // description or shipping fields (Ed noticed dimensions missing there,
+  // 2026-07-24). Resolve properties by name from the live taxonomy so this
+  // works across families with different property sets.
+  let attributesSet = 0
+  try {
+    const props = await gateway.getPropertiesByTaxonomyId(taxonomyId)
+    const wanted: Array<{ name: string; value: number; scaleName: string }> = [
+      { name: 'Height', value: height, scaleName: 'Inches' },
+      { name: 'Width', value: width, scaleName: 'Inches' },
+      { name: 'Length', value: depth, scaleName: 'Inches' },
+      { name: 'Weight', value: weight, scaleName: 'Pounds' },
+    ]
+    for (const attr of wanted) {
+      const prop = props.find((p) => p.name === attr.name)
+      const scale = prop?.scales.find((s) => s.display_name === attr.scaleName)
+      if (!prop || !scale) {
+        warnings.push(`no ${attr.name} attribute in this category; skipped`)
+        continue
+      }
+      try {
+        await gateway.updateListingProperty(me.shop_id, listingId, prop.property_id, {
+          values: String(attr.value),
+          scale_id: scale.scale_id,
+        })
+        attributesSet += 1
+      } catch (err) {
+        warnings.push(`${attr.name} attribute failed: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+  } catch (err) {
+    warnings.push(`could not load category attributes: ${err instanceof Error ? err.message : String(err)}`)
+  }
+
   // Variations run for both create and update so the discovery loop can
   // retry them on an existing listing (the inventory PUT is idempotent).
   const colorways = new Map<string, number>()
@@ -169,6 +204,7 @@ export async function pushDraftToEtsy(
     created,
     images_uploaded: imagesUploaded,
     variations_set: variationsSet,
+    attributes_set: attributesSet,
     taxonomy_name: node?.name ?? null,
     warnings,
   }

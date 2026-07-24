@@ -9,6 +9,12 @@ import type {
   TaxonomyNode,
 } from './types'
 
+export interface TaxonomyProperty {
+  property_id: number
+  name: string
+  scales: Array<{ scale_id: number; display_name: string }>
+}
+
 const BASE = 'https://api.etsy.com/v3/application'
 
 export class EtsyApiError extends Error {
@@ -26,6 +32,8 @@ export interface EtsyGateway {
   getShippingProfiles(shopId: number): Promise<ShippingProfile[]>
   getReadinessStateDefinitions(shopId: number): Promise<ReadinessStateDefinition[]>
   getSellerTaxonomyNodes(): Promise<TaxonomyNode[]>
+  getPropertiesByTaxonomyId(taxonomyId: number): Promise<TaxonomyProperty[]>
+  updateListingProperty(shopId: number, listingId: number, propertyId: number, input: { values: string; scale_id?: number }): Promise<void>
   createDraftListing(shopId: number, draft: DraftListingInput): Promise<Listing>
   deleteListing(listingId: number): Promise<void>
   updateListing(shopId: number, listingId: number, patch: ListingPatch): Promise<void>
@@ -41,7 +49,7 @@ export function createEtsyGateway(deps: {
 }): EtsyGateway {
   const fetchFn = deps.fetchFn ?? fetch
 
-  async function request<T>(method: 'GET' | 'POST' | 'DELETE' | 'PATCH', path: string, form?: Record<string, string | number | undefined>): Promise<T> {
+  async function request<T>(method: 'GET' | 'POST' | 'DELETE' | 'PATCH' | 'PUT', path: string, form?: Record<string, string | number | undefined>): Promise<T> {
     const token = await deps.getAccessToken()
     const init: RequestInit = {
       method,
@@ -117,6 +125,22 @@ export function createEtsyGateway(deps: {
     getSellerTaxonomyNodes: async () => {
       const data = await request<{ results: TaxonomyNode[] }>('GET', '/seller-taxonomy/nodes')
       return data.results
+    },
+
+    getPropertiesByTaxonomyId: async (taxonomyId) => {
+      const res = await request<{ results: TaxonomyProperty[] }>('GET', `/seller-taxonomy/nodes/${taxonomyId}/properties`)
+      return res.results.map((p) => ({
+        property_id: p.property_id,
+        name: p.name,
+        scales: (p.scales ?? []).map((s) => ({ scale_id: s.scale_id, display_name: s.display_name })),
+      }))
+    },
+
+    updateListingProperty: async (shopId, listingId, propertyId, input) => {
+      await request<void>('PUT', `/shops/${shopId}/listings/${listingId}/properties/${propertyId}`, {
+        values: input.values,
+        scale_id: input.scale_id,
+      })
     },
 
     createDraftListing: (shopId, draft) =>
