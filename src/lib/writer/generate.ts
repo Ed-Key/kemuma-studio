@@ -46,7 +46,20 @@ export async function generateDraft(
   const detail = getDesignDetail(db, designId)
   if (!detail) throw new Error(`design ${designId} not found`)
 
-  const photoIds = detail.pieces.flatMap((p) => p.photos.map((ph) => ph.photo_id)).slice(0, maxImages)
+  // Round-robin across pieces so multi-colorway designs show every colorway
+  // to the model instead of six shots of the first piece.
+  const byPiece = detail.pieces.map((p) => p.photos.map((ph) => ph.photo_id))
+  const photoIds: number[] = []
+  for (let round = 0; photoIds.length < maxImages; round++) {
+    let added = false
+    for (const list of byPiece) {
+      if (list[round] !== undefined && photoIds.length < maxImages) {
+        photoIds.push(list[round])
+        added = true
+      }
+    }
+    if (!added) break
+  }
   const images: ApiImageBlock[] = []
   for (const id of photoIds) {
     const file = getPhotoPath(db, id)

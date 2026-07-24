@@ -36,6 +36,9 @@ export function buildSystemPrompt(): string {
     '  color and natural variation, use and care, packaging, and the vintage nature of the collection.',
     '- price_usd: a realistic US price for handmade/vintage stone decor of this size and category,',
     '  keeping in mind $35+ qualifies for free-shipping treatment on Etsy.',
+    '- When a design exists in multiple colorways, the listing has a colorway picker: write the title',
+    '  and description to cover the full range (name the available colorways in the description),',
+    '  never copy specific to a single colorway. Single-colorway designs may name their color.',
   ].join('\n')
 }
 
