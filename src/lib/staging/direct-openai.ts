@@ -1,5 +1,6 @@
 import type { ApiImageBlock } from '@/lib/writer/generate'
 import { ArtDirectionSchema, VariedArtDirectionSchema, buildDirectorSystemPrompt, type ArtDirector } from './direct'
+import { createClaudeSdkArtDirector } from './direct-claude-sdk'
 
 // Hand-written JSON schemas mirroring the zod ones, in the strict subset
 // OpenAI accepts: every property required, no additionalProperties, and
@@ -120,6 +121,9 @@ export function createOpenAIArtDirector(opts?: {
  */
 export function defaultArtDirector(): ArtDirector {
   const spec = process.env.ART_DIRECTOR_MODEL ?? ''
+  if (spec.startsWith('claude-sub:')) {
+    return createClaudeSdkArtDirector({ model: spec.slice('claude-sub:'.length) || undefined })
+  }
   if (spec.startsWith('anthropic:')) {
     // Lazy so the Anthropic SDK is never constructed unless asked for.
     // eslint-disable-next-line @typescript-eslint/no-require-imports

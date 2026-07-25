@@ -63,7 +63,10 @@ export interface DesignMatcher {
 }
 
 export function matcherModel(): string {
-  return process.env.ANTHROPIC_MODEL ?? 'claude-opus-4-8'
+  const spec = process.env.MATCHER_MODEL ?? ''
+  if (spec.startsWith('anthropic:')) return spec.slice('anthropic:'.length)
+  if (spec.startsWith('openai:')) return spec.slice('openai:'.length)
+  return spec || 'gpt-5.1'
 }
 
 export function createClaudeMatcher(): DesignMatcher {

@@ -7,7 +7,8 @@ export const MODEL_PRICES: Record<string, { input: number; output: number }> = {
   'gemini-2.5-flash': { input: 0.3, output: 2.5 },
   'gemini-2.5-pro': { input: 1.25, output: 10 },
   'grok-4': { input: 3, output: 15 },
-  // OpenAI, used for art direction (USD per million tokens).
+  // OpenAI, used for staging and matching (USD per million tokens).
+  // gpt-5.1 cached input is $0.125; this usage path reports total input only.
   'gpt-5.1': { input: 1.25, output: 10 },
   'gpt-5.2': { input: 1.25, output: 10 },
   'gpt-5': { input: 1.25, output: 10 },

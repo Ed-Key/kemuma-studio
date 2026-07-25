@@ -4,6 +4,7 @@ import { getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { appendChatMessages, getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { computeCostUsd } from '@/lib/writer/prices'
 import { AGENT_TOOLS, executeAgentTool } from './agent-tools'
+import { DEFAULT_STAGING_AGENT_MODEL } from './agent-openai'
 
 // Minimal client surface so tests can script the conversation.
 export interface StagingAgentClient {
@@ -21,7 +22,10 @@ export interface StagingAgentClient {
 }
 
 export function agentModel(): string {
-  return process.env.ANTHROPIC_MODEL ?? 'claude-opus-4-8'
+  const spec = process.env.STAGING_AGENT_MODEL ?? ''
+  if (spec.startsWith('anthropic:')) return spec.slice('anthropic:'.length)
+  if (spec.startsWith('openai:')) return spec.slice('openai:'.length)
+  return spec || DEFAULT_STAGING_AGENT_MODEL
 }
 
 export function createAnthropicAgentClient(): StagingAgentClient {

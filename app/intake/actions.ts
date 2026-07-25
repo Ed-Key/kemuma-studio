@@ -7,7 +7,8 @@ import { getCatalogDb, dataDir } from '@/lib/catalog/instance'
 import { addPhoto, addPiece, createDesign, logEvent } from '@/lib/catalog/catalog'
 import { createIntake, getIntake, confirmIntake } from '@/lib/catalog/intakes'
 import { photoDiskPath, savePhotoFile } from '@/lib/catalog/photos-fs'
-import { createClaudeMatcher, proposeMatch } from '@/lib/matcher/match'
+import { proposeMatch } from '@/lib/matcher/match'
+import { defaultMatcher } from '@/lib/matcher/match-openai'
 import type { MatchProposal } from '@/lib/matcher/schema'
 
 const ALLOWED = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic'])
@@ -29,7 +30,7 @@ export async function createIntakeAction(formData: FormData) {
     saved.push(dest)
   }
 
-  const proposal = await proposeMatch(db, createClaudeMatcher(), saved)
+  const proposal = await proposeMatch(db, defaultMatcher(), saved)
   const intakeId = createIntake(db, { dir, photos_json: JSON.stringify(saved), proposal_json: JSON.stringify(proposal) })
   redirect(`/intake/${intakeId}`)
 }
