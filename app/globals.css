@@ -1022,6 +1022,17 @@ input[type='radio'] {
   color: var(--text);
 }
 
+/* The exception to the hugging rule above. In these cards the pill is not a
+   label beside something, it is the card's whole verdict, sitting in a column
+   where every other control is full width. Hugging made an approved card and a
+   rejected one two different shapes. */
+.staged-grid .pill {
+  width: 100%;
+  justify-content: center;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
 .reject-reasons {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));

@@ -195,10 +195,10 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                     {c.etsy_uploaded_at ? (
                       <span className="pill pill--ok">On the Etsy listing</span>
                     ) : detail.etsy_listing_id ? (
-                      <ActionForm action={attachCardToEtsyAction} className="action-row">
+                      <ActionForm action={attachCardToEtsyAction} className="stack-sm">
                         <input type="hidden" name="design_id" value={detail.design_id} />
                         <input type="hidden" name="card_id" value={c.card_id} />
-                        <PendingSubmit pendingLabel="Adding to listing..." orbState="working" variant="primary">
+                        <PendingSubmit pendingLabel="Adding to listing..." orbState="working" variant="primary" block>
                           Add to Etsy listing
                         </PendingSubmit>
                       </ActionForm>
@@ -334,11 +334,9 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                       <ActionForm action={attachSceneToEtsyAction} className="stack-sm">
                         <input type="hidden" name="design_id" value={detail.design_id} />
                         <input type="hidden" name="staged_id" value={s.staged_id} />
-                        <div className="action-row">
-                          <PendingSubmit pendingLabel="Adding to listing..." orbState="working" variant="ghost">
-                            Add to Etsy listing
-                          </PendingSubmit>
-                        </div>
+                        <PendingSubmit pendingLabel="Adding to listing..." orbState="working" variant="ghost" block>
+                          Add to Etsy listing
+                        </PendingSubmit>
                       </ActionForm>
                     ) : null}
                   </div>
