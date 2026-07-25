@@ -72,9 +72,16 @@ export async function pushDraftToEtsy(
     materials: string[]
   }
 
+  // Two different things. `warnings` are steps of this push that did not do
+  // what they were meant to, and they persist onto the design so the catalog
+  // can ask for another push. `notes` are true whether or not anyone pushed;
+  // they are said once here and never stored, because no number of re-pushes
+  // can clear them and a stored one would pin the design to "needs you"
+  // forever with a verb that cannot fix it.
   const warnings: string[] = []
+  const notes: string[] = []
   if (/estimated/i.test(detail.notes ?? '')) {
-    warnings.push('measurements are estimated; verify with a tape measure and scale before publishing')
+    notes.push('measurements are estimated; verify with a tape measure and scale')
   }
 
   const quantity = detail.pieces.reduce((sum, p) => sum + p.quantity, 0)
@@ -248,7 +255,7 @@ export async function pushDraftToEtsy(
     variations_set: variationsSet,
     attributes_set: attributesSet,
     taxonomy_name: node?.name ?? null,
-    warnings,
+    warnings: [...notes, ...warnings],
   }
   db.prepare(
     warnings.length > 0
