@@ -303,7 +303,7 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
         {staged.length === 0 ? (
           <p className="empty">No staged images yet.</p>
         ) : (
-          <div className="staged-grid">
+          <div className="staged-grid staged-grid--batch">
             {staged.map((s) => (
               <div key={s.staged_id} className="card stack-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

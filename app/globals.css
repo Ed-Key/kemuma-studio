@@ -982,6 +982,24 @@ input[type='radio'] {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
 }
+
+/* Four across, and halving rather than stepping down by one, so a batch of
+   four always reads as a whole number of rows. */
+.staged-grid--batch {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1180px) {
+  .staged-grid--batch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .staged-grid--batch {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .staged-img {
   display: block;
   width: 100%;

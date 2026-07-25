@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 import WorkingOrb, { type OrbState } from './WorkingOrb'
 
 const POLL_MS = 3000
@@ -53,6 +54,8 @@ export default function RunningWork({
 }) {
   const [jobs, setJobs] = useState<RunningJob[]>([])
   const [now, setNow] = useState(() => Date.now())
+  const router = useRouter()
+  const watching = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     let active = true
@@ -69,14 +72,20 @@ export default function RunningWork({
         if (!response.ok) return
         const body = (await response.json()) as { jobs: RunningJob[] }
         if (!active) return
-        setJobs(
-          body.jobs.filter(
-            (job) =>
-              job.kind === kind
-              && job.design_id === designId
-              && (job.status === 'running' || job.status === 'queued')
-          )
+        const mine = body.jobs.filter(
+          (job) =>
+            job.kind === kind
+            && job.design_id === designId
+            && (job.status === 'running' || job.status === 'queued')
         )
+        setJobs(mine)
+
+        // revalidatePath clears the server cache but nothing asks the browser
+        // to re-read it, so refresh on the edge where a job disappears.
+        const live = new Set(mine.map((job) => job.job_id))
+        const landed = [...watching.current].some((id) => !live.has(id))
+        watching.current = live
+        if (landed) router.refresh()
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           console.error('Could not read running work', error)
@@ -91,7 +100,7 @@ export default function RunningWork({
       request?.abort()
       clearInterval(timer)
     }
-  }, [kind, designId])
+  }, [kind, designId, router])
 
   useEffect(() => {
     if (jobs.length === 0) return
