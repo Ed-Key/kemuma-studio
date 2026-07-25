@@ -121,4 +121,10 @@ function migrate(db: Db): void {
   if (!designCols.includes('published_at')) {
     db.exec('ALTER TABLE designs ADD COLUMN published_at TEXT')
   }
+  if (!designCols.includes('push_warnings_json')) {
+    db.exec('ALTER TABLE designs ADD COLUMN push_warnings_json TEXT')
+  }
+  if (!designCols.includes('push_warned_at')) {
+    db.exec('ALTER TABLE designs ADD COLUMN push_warned_at TEXT')
+  }
 }

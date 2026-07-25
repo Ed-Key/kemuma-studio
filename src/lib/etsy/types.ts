@@ -66,4 +66,7 @@ export interface InventoryBody {
     property_values: Array<{ property_id: number; property_name: string; values: string[] }>
     offerings: Array<{ price: number; quantity: number; is_enabled: boolean; readiness_state_id: number }>
   }>
+  /** Properties whose value changes the stock count. Etsy rejects differing
+   *  quantities unless the property they vary on is named here. */
+  quantity_on_property?: number[]
 }

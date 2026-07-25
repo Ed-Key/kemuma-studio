@@ -26,18 +26,29 @@ export interface PushResult {
   warnings: string[]
 }
 
+/** Etsy's first custom variation slot, which this shop uses for colorway. */
+const COLORWAY_PROPERTY_ID = 513
+
 export function buildInventoryProducts(
   pieces: Array<{ colorway: string; quantity: number }>,
   price: number,
   readinessStateId: number
 ): InventoryBody {
+  // Live-API discovery 2026-07-25: a listing whose colorways hold different
+  // stock counts is rejected with "quantity must be consistent across all
+  // products" unless the property the count varies on is declared. Colorways
+  // are exactly that for this shop (the canoe dish is 1 maroon and 4 assorted),
+  // so name the property whenever the counts actually differ. Leaving it off
+  // when they match is the truthful description of a listing where they do not.
+  const quantities = new Set(pieces.map((p) => p.quantity))
   return {
     products: pieces.map((p) => ({
-      property_values: [{ property_id: 513, property_name: 'Colorway', values: [p.colorway] }],
+      property_values: [{ property_id: COLORWAY_PROPERTY_ID, property_name: 'Colorway', values: [p.colorway] }],
       // Live-API discovery 2026-07-24: etsy rejects offerings without a
       // readiness state ("All offerings need readiness state").
       offerings: [{ price, quantity: p.quantity, is_enabled: true, readiness_state_id: readinessStateId }],
     })),
+    ...(quantities.size > 1 ? { quantity_on_property: [COLORWAY_PROPERTY_ID] } : {}),
   }
 }
 
@@ -240,6 +251,11 @@ export async function pushDraftToEtsy(
     taxonomy_name: node?.name ?? null,
     warnings,
   }
+  db.prepare(
+    warnings.length > 0
+      ? 'UPDATE designs SET push_warnings_json = ?, push_warned_at = ? WHERE design_id = ?'
+      : 'UPDATE designs SET push_warnings_json = NULL, push_warned_at = NULL WHERE design_id = ?'
+  ).run(...(warnings.length > 0 ? [JSON.stringify(warnings), new Date().toISOString(), designId] : [designId]))
   logEvent(db, 'etsy.pushed', { design_id: designId, ...result })
   return result
 }

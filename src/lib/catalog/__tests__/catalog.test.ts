@@ -19,6 +19,11 @@ describe('openDb', () => {
       .all()
       .map((r) => (r as { name: string }).name)
     expect(tables).toEqual(expect.arrayContaining(['designs', 'events', 'photos', 'pieces']))
+    const designColumns = db2
+      .prepare('PRAGMA table_info(designs)')
+      .all()
+      .map((r) => (r as { name: string }).name)
+    expect(designColumns).toEqual(expect.arrayContaining(['push_warnings_json', 'push_warned_at']))
     db2.close()
   })
 
@@ -62,10 +67,15 @@ describe('catalog operations', () => {
     const id = createDesign(db, { family: 'bowl', name: 'Animal Bowl 4in' })
     const pieceId = addPiece(db, { design_id: id, colorway: 'natural', height_in: 2, width_in: 4, depth_in: 4, weight_lb: 1 })
     addPhoto(db, { piece_id: pieceId, file_path: 'data/photos/1/0.jpg', position: 0 })
+    db.prepare(
+      'UPDATE designs SET push_warnings_json = ?, push_warned_at = ? WHERE design_id = ?'
+    ).run('["image 1 failed to upload"]', '2026-01-01T00:00:00.000Z', id)
     const detail = getDesignDetail(db, id)
     expect(detail?.pieces).toHaveLength(1)
     expect(detail?.pieces[0].photos).toHaveLength(1)
     expect(detail?.pieces[0].status).toBe('cataloged')
+    expect(detail?.push_warnings_json).toBe('["image 1 failed to upload"]')
+    expect(detail?.push_warned_at).toBe('2026-01-01T00:00:00.000Z')
   })
 
   it('returns null detail for a missing design', () => {

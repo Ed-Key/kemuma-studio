@@ -124,6 +124,18 @@ describe('buildInventoryProducts', () => {
     expect(body.products[0].property_values[0]).toEqual({ property_id: 513, property_name: 'Colorway', values: ['blue'] })
     expect(body.products[1].offerings[0]).toEqual({ price: 58, quantity: 2, is_enabled: true, readiness_state_id: 3 })
   })
+
+  it('declares the colorway property when stock counts differ', () => {
+    // Etsy rejects the push with "quantity must be consistent across all
+    // products" unless the property the count varies on is named.
+    const body = buildInventoryProducts([{ colorway: 'maroon', quantity: 1 }, { colorway: 'assorted', quantity: 4 }], 58, 3)
+    expect(body.quantity_on_property).toEqual([513])
+  })
+
+  it('leaves the property off when every colorway holds the same count', () => {
+    const body = buildInventoryProducts([{ colorway: 'blue', quantity: 2 }, { colorway: 'rose', quantity: 2 }], 58, 3)
+    expect(body.quantity_on_property).toBeUndefined()
+  })
 })
 
 describe('pushDraftToEtsy', () => {
@@ -163,6 +175,40 @@ describe('pushDraftToEtsy', () => {
     expect(failed.variations_set).toBe(false)
     expect(failed.created).toBe(true)
     expect(failed.warnings.join(' ')).toMatch(/invalid property/)
+  })
+
+  it('persists warnings and when the push produced them', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'rose'] })
+    const gw = fakeGateway({
+      updateListingInventory: vi.fn(async () => {
+        throw new Error('quantity must be consistent across all products')
+      }),
+    })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir)
+    const stored = db
+      .prepare('SELECT push_warnings_json, push_warned_at FROM designs WHERE design_id = ?')
+      .get(designId) as { push_warnings_json: string | null; push_warned_at: string | null }
+
+    expect(JSON.parse(stored.push_warnings_json!)).toEqual(result.warnings)
+    expect(stored.push_warned_at).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+  })
+
+  it('clears stale warning state when a push has no warnings', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    db.prepare(
+      'UPDATE designs SET push_warnings_json = ?, push_warned_at = ? WHERE design_id = ?'
+    ).run('["old failure"]', '2026-01-01T00:00:00.000Z', designId)
+
+    const result = await pushDraftToEtsy(db, fakeGateway(), designId, dataDir)
+    const stored = db
+      .prepare('SELECT push_warnings_json, push_warned_at FROM designs WHERE design_id = ?')
+      .get(designId) as { push_warnings_json: string | null; push_warned_at: string | null }
+
+    expect(result.warnings).toEqual([])
+    expect(stored).toEqual({ push_warnings_json: null, push_warned_at: null })
   })
 
   it('updates instead of recreating when a listing id exists', async () => {

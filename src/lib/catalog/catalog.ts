@@ -82,7 +82,12 @@ export function getPhotoPath(db: Db, photoId: number): string | null {
 
 export function getDesignDetail(db: Db, designId: number) {
   const design = db
-    .prepare('SELECT design_id, family, name, notes, etsy_listing_id, published_at FROM designs WHERE design_id = ?')
+    .prepare(`
+      SELECT design_id, family, name, notes, etsy_listing_id, published_at,
+             push_warnings_json, push_warned_at
+      FROM designs
+      WHERE design_id = ?
+    `)
     .get(designId) as
     | {
         design_id: number
@@ -91,6 +96,8 @@ export function getDesignDetail(db: Db, designId: number) {
         notes: string | null
         etsy_listing_id: number | null
         published_at: string | null
+        push_warnings_json: string | null
+        push_warned_at: string | null
       }
     | undefined
   if (!design) return null
