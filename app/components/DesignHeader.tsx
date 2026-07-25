@@ -4,6 +4,7 @@ import { latestDraftForDesign } from '@/lib/catalog/drafts'
 import { listStagedForDesign } from '@/lib/catalog/staged'
 import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
 import { listingEditorUrl } from '@/lib/etsy/urls'
+import { describeDesign } from '@/lib/catalog/card-state'
 
 type DesignDetail = {
   design_id: number
@@ -67,7 +68,7 @@ export default function DesignHeader({
         <h1>{detail.name}</h1>
         <p className="eyebrow">
           {detail.family}
-          {detail.notes ? ` · ${detail.notes}` : ''}
+          {describeDesign(detail.notes) ? ` · ${describeDesign(detail.notes)}` : ''}
         </p>
       </div>
       <div className="row">
@@ -91,7 +92,9 @@ export default function DesignHeader({
             aria-current={t.key === current ? 'page' : undefined}
           >
             {t.label}
-            {t.state ? <span className="mono muted"> · {t.state}</span> : null}
+            {/* "approved", "3 to review" and "none" are words about where the
+                work stands, not machine values, so they are not set in mono. */}
+            {t.state ? <span className="tab-state"> · {t.state}</span> : null}
           </Link>
         ))}
         {children}

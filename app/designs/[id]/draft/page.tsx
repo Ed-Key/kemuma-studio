@@ -55,9 +55,15 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
                   {draft ? 'Rewrite the copy' : 'Write the copy'}
                 </div>
                 {record && (
-                  <p className="meta-line">
-                    status {record.status} · model {record.model}
-                    {record.cost_usd != null ? ` · cost $${record.cost_usd.toFixed(3)}` : ''}
+                  /* The status is already stated by the tab chip above, and the
+                     model id is provenance the owner needs about twice a year,
+                     not every time they open a listing. It stays on the title so
+                     it is one hover away. What is left is the one fact worth a
+                     line of its own: what this copy cost to write. */
+                  <p className="eyebrow" title={`written by ${record.model}`}>
+                    {record.cost_usd != null
+                      ? `Written for $${record.cost_usd.toFixed(3)}`
+                      : 'Written by the studio writer'}
                   </p>
                 )}
               </div>
@@ -74,8 +80,14 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
 
+          {/* The form below is keyed on the draft so regenerating swaps the
+              whole thing. Every field in it is uncontrolled, and React only
+              honours defaultValue when it builds the node: without the key it
+              reuses the existing inputs and the new copy never lands, leaving
+              the owner reading the previous draft while the header says it was
+              just rewritten. */}
           {draft && record && (
-            <ActionForm action={approveDraftAction} className="stack">
+            <ActionForm key={record.draft_id} action={approveDraftAction} className="stack">
               <input type="hidden" name="design_id" value={detail.design_id} />
               <input type="hidden" name="draft_id" value={record.draft_id} />
 
