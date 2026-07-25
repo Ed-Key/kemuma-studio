@@ -1065,6 +1065,13 @@ input[type='radio'] {
   font-size: 15px;
 }
 
+.job-notice-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
 /* ---- Simple card grid --------------------------------------------------- */
 
 .design-grid {

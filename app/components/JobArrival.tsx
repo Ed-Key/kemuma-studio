@@ -3,7 +3,7 @@ import { getCatalogDb } from '@/lib/catalog/instance'
 import { listOpenForDestination, markSeen, type JobRecord } from '@/lib/catalog/jobs'
 import ActionForm from './ActionForm'
 import PendingSubmit from './PendingSubmit'
-import { acknowledgeJobAction } from './job-actions'
+import { acknowledgeJobAction, retryJobAction } from './job-actions'
 
 /**
  * What happens when the owner reaches the page a job landed on.
@@ -49,8 +49,18 @@ export default function JobArrival({ destination }: { destination: string }) {
   )
 }
 
+/* A batch that dies halfway leaves what it already made behind, and running it
+   again makes a whole new batch rather than finishing the old one. That costs
+   real money per image, so the notice says so where the images it already
+   produced are visible on the same page. */
+const REPEATS_WHOLE_BATCH = new Set(['staging_batch', 'planned_batch'])
+
 function TroubleNotice({ job }: { job: JobRecord }) {
   const interrupted = job.status === 'interrupted'
+  // Nothing to repeat if the row never recorded the call, which is true of
+  // every job written before jobs stored their inputs.
+  const retryable = interrupted && job.input_json !== null
+
   return (
     <div className={`banner banner--${interrupted ? 'warn' : 'danger'} job-notice`}>
       <div>
@@ -60,13 +70,29 @@ function TroubleNotice({ job }: { job: JobRecord }) {
             ? 'The server restarted while this was running. Whatever it finished before that is already on this page.'
             : job.error || 'It stopped without saying why.'}
         </span>
+        {retryable && REPEATS_WHOLE_BATCH.has(job.kind) && (
+          <span className="banner-detail">
+            Running it again starts the batch over rather than finishing it, so expect a
+            second set of images alongside anything above.
+          </span>
+        )}
       </div>
-      <ActionForm action={acknowledgeJobAction}>
-        <input type="hidden" name="job_id" value={job.job_id} />
-        <PendingSubmit pendingLabel="Clearing..." variant="ghost">
-          Clear
-        </PendingSubmit>
-      </ActionForm>
+      <div className="job-notice-tools">
+        {retryable && (
+          <ActionForm action={retryJobAction}>
+            <input type="hidden" name="job_id" value={job.job_id} />
+            <PendingSubmit pendingLabel="Starting..." variant="ghost">
+              Run it again
+            </PendingSubmit>
+          </ActionForm>
+        )}
+        <ActionForm action={acknowledgeJobAction}>
+          <input type="hidden" name="job_id" value={job.job_id} />
+          <PendingSubmit pendingLabel="Clearing..." variant="ghost">
+            Clear
+          </PendingSubmit>
+        </ActionForm>
+      </div>
     </div>
   )
 }

@@ -12,3 +12,4 @@ data/
 *.sqlite
 *.sqlite-*
 .next-build/
+tsconfig.tsbuildinfo
