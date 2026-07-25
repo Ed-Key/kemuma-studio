@@ -8,6 +8,7 @@ import ActionForm from '../../../components/ActionForm'
 import DesignHeader from '../../../components/DesignHeader'
 import JobArrival from '../../../components/JobArrival'
 import PendingSubmit from '../../../components/PendingSubmit'
+import RunningWork from '../../../components/RunningWork'
 import TitleField from '../../../components/TitleField'
 
 export const dynamic = 'force-dynamic'
@@ -69,7 +70,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
                   </p>
                 )}
               </div>
-              <ActionForm action={generateDraftAction}>
+              <ActionForm action={generateDraftAction} className="action-row">
                 <input type="hidden" name="design_id" value={detail.design_id} />
                 <PendingSubmit
                   pendingLabel="Writing listing..."
@@ -78,6 +79,16 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
                 >
                   {draft ? 'Regenerate' : 'Generate draft'}
                 </PendingSubmit>
+                {/* The last launcher that went quiet. One model call rather
+                    than a loop, so there is nothing to narrate beyond the verb
+                    and the clock, which is still the difference between a page
+                    that is working and a page that looks idle. */}
+                <RunningWork
+                  kind="listing_copy"
+                  designId={detail.design_id}
+                  label="Writing the listing"
+                  orbState="composing"
+                />
               </ActionForm>
             </div>
           </div>
