@@ -67,9 +67,9 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
         <div className="card-title">Stage a new batch</div>
         <ActionForm action={stageDesignAction} className="stack-sm">
           <input type="hidden" name="design_id" value={detail.design_id} />
-          <div className="field">
+          <div className="field field--options">
             <span className="field-label">Scene</span>
-            <label className="select-row">
+            <label className="select-row select-row--wide">
               <input type="radio" name="scene_key" value="auto" defaultChecked />
               <span>
                 Rotate automatically

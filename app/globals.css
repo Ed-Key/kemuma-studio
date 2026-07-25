@@ -856,6 +856,20 @@ button:not(:disabled) {
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 
+/* Scene names are two or three words, so a row each spent a full 1159px on a
+   100px label. At nine scenes that stacked to 503px and pushed the Stage
+   button off the bottom of the screen, turning a one-click action into a
+   scroll hunt. A grid keeps the action visible as the scene library grows. */
+.field--options {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.field--options .field-label,
+.field--options .select-row--wide {
+  grid-column: 1 / -1;
+}
+
 .select-row:hover {
   border-color: var(--border-strong);
   background: var(--surface-2);
