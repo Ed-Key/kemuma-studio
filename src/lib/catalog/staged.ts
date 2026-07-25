@@ -6,6 +6,15 @@ import { logEvent } from './catalog'
 // so staged images only ever ship to marketing destinations.
 export const DESTINATIONS = ['social', 'pinterest', 'storefront', 'storyboard'] as const
 export type Destination = (typeof DESTINATIONS)[number]
+export const REJECT_REASONS = [
+  'wrong_object',
+  'lost_detail',
+  'wrong_count',
+  'broke_plan',
+  'looks_fake',
+  'not_wanted',
+] as const
+export type RejectReason = (typeof REJECT_REASONS)[number]
 
 export interface StagedImageRecord {
   staged_id: number
@@ -16,6 +25,7 @@ export interface StagedImageRecord {
   file_path: string
   status: 'candidate' | 'approved' | 'rejected'
   destination: Destination | null
+  reject_reason: string | null
   model: string
   cost_usd: number | null
   etsy_uploaded_at: string | null
@@ -82,16 +92,23 @@ export function approveStagedImage(db: Db, input: { staged_id: number; destinati
   if (!DESTINATIONS.includes(input.destination)) {
     throw new Error(`unknown destination "${input.destination}"`)
   }
-  db.prepare("UPDATE staged_images SET status = 'approved', destination = ? WHERE staged_id = ?").run(
+  db.prepare(
+    "UPDATE staged_images SET status = 'approved', destination = ?, reject_reason = NULL WHERE staged_id = ?"
+  ).run(
     input.destination,
     input.staged_id
   )
   logEvent(db, 'stage.approved', { staged_id: input.staged_id, destination: input.destination })
 }
 
-export function rejectStagedImage(db: Db, stagedId: number): void {
-  db.prepare("UPDATE staged_images SET status = 'rejected', destination = NULL WHERE staged_id = ?").run(stagedId)
-  logEvent(db, 'stage.rejected', { staged_id: stagedId })
+export function rejectStagedImage(db: Db, stagedId: number, reason: RejectReason): void {
+  if (!REJECT_REASONS.includes(reason)) {
+    throw new Error(`unknown reject reason "${reason}"`)
+  }
+  db.prepare(
+    "UPDATE staged_images SET status = 'rejected', destination = NULL, reject_reason = ? WHERE staged_id = ?"
+  ).run(reason, stagedId)
+  logEvent(db, 'stage.rejected', { staged_id: stagedId, reason })
 }
 
 export function listApprovedImages(db: Db): Array<StagedImageRecord & { design_name: string }> {

@@ -1022,6 +1022,37 @@ input[type='radio'] {
   color: var(--text);
 }
 
+.reject-reasons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip-btn {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  width: 100%;
+  text-align: center;
+}
+
+/* Not a fault, and the one that will be clicked most. Dashed so it does not
+   read as a sixth way the model failed. */
+.chip-btn--neutral {
+  border-style: dashed;
+}
+
+.chip-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
+}
+
 .policy-note {
   color: var(--text-2);
   font-size: 13px;

@@ -10,6 +10,7 @@ import {
   rejectStagedImage,
   DESTINATIONS,
   type Destination,
+  type RejectReason,
 } from '@/lib/catalog/staged'
 import { runJobOperation, type JobInput } from '@/lib/jobs/operations'
 import { startJob } from '@/lib/jobs/schedule'
@@ -90,7 +91,8 @@ export async function rejectStagedAction(_prev: ActionResult | null, formData: F
   try {
     const designId = Number(formData.get('design_id'))
     const stagedId = Number(formData.get('staged_id'))
-    rejectStagedImage(getCatalogDb(), stagedId)
+    const reason = String(formData.get('reason')) as RejectReason
+    rejectStagedImage(getCatalogDb(), stagedId, reason)
     revalidatePath(`/designs/${designId}/staging`)
     return { ok: true, message: 'Rejected.' }
   } catch (err) {

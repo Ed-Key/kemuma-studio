@@ -80,6 +80,7 @@ function migrate(db: Db): void {
         CHECK (status IN ('candidate', 'approved', 'rejected')),
       destination TEXT
         CHECK (destination IN ('social', 'pinterest', 'storefront', 'storyboard')),
+      reject_reason TEXT,
       model TEXT NOT NULL,
       cost_usd REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -148,6 +149,9 @@ function migrate(db: Db): void {
   const stagedCols = (db.prepare('PRAGMA table_info(staged_images)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!stagedCols.includes('etsy_uploaded_at')) {
     db.exec('ALTER TABLE staged_images ADD COLUMN etsy_uploaded_at TEXT')
+  }
+  if (!stagedCols.includes('reject_reason')) {
+    db.exec('ALTER TABLE staged_images ADD COLUMN reject_reason TEXT')
   }
   const designCols = (db.prepare('PRAGMA table_info(designs)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!designCols.includes('published_at')) {

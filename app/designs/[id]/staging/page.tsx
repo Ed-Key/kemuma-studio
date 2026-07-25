@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
-import { listStagedForDesign, DESTINATIONS } from '@/lib/catalog/staged'
+import { listStagedForDesign, DESTINATIONS, REJECT_REASONS } from '@/lib/catalog/staged'
 import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
 import { getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { scenesForFamily, SCENES } from '@/lib/staging/scenes'
@@ -31,6 +31,15 @@ const DESTINATION_LABELS: Record<string, string> = {
   pinterest: 'Pinterest',
   storefront: 'Storefront',
   storyboard: 'Shoot storyboard',
+}
+
+const REJECT_LABELS: Record<string, string> = {
+  wrong_object: 'wrong piece',
+  lost_detail: 'lost carving',
+  wrong_count: 'wrong count',
+  broke_plan: 'broke the plan',
+  looks_fake: 'looks fake',
+  not_wanted: 'just not it',
 }
 
 export default async function StagingPage({ params }: { params: Promise<{ id: string }> }) {
@@ -337,7 +346,7 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                 {s.status === 'rejected' && <span className="pill pill--danger">rejected</span>}
                 {s.status === 'candidate' && (
                   <div className="stack-sm">
-                    <ActionForm action={approveStagedAction} className="action-row">
+                    <ActionForm action={approveStagedAction} className="stack-sm">
                       <input type="hidden" name="design_id" value={detail.design_id} />
                       <input type="hidden" name="staged_id" value={s.staged_id} />
                       <select className="select" name="destination" defaultValue="social">
@@ -347,17 +356,28 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                           </option>
                         ))}
                       </select>
-                      <PendingSubmit pendingLabel="Approving..." variant="primary">
+                      <PendingSubmit pendingLabel="Approving..." variant="primary" block>
                         Approve
                       </PendingSubmit>
                     </ActionForm>
-                    <ActionForm action={rejectStagedAction} className="action-row">
-                      <input type="hidden" name="design_id" value={detail.design_id} />
-                      <input type="hidden" name="staged_id" value={s.staged_id} />
-                      <PendingSubmit pendingLabel="Rejecting..." variant="ghost">
-                        Reject
-                      </PendingSubmit>
-                    </ActionForm>
+                    <div>
+                      <span className="field-label">Reject as</span>
+                      <div className="reject-reasons">
+                        {REJECT_REASONS.map((reason) => (
+                          <ActionForm action={rejectStagedAction} key={reason}>
+                            <input type="hidden" name="design_id" value={detail.design_id} />
+                            <input type="hidden" name="staged_id" value={s.staged_id} />
+                            <input type="hidden" name="reason" value={reason} />
+                            <button
+                              type="submit"
+                              className={`chip-btn${reason === 'not_wanted' ? ' chip-btn--neutral' : ''}`}
+                            >
+                              {REJECT_LABELS[reason]}
+                            </button>
+                          </ActionForm>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

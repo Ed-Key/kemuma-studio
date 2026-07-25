@@ -47,6 +47,11 @@ describe('openDb', () => {
       'heartbeat_at',
       'input_json',
     ])
+    const stagedColumns = db2
+      .prepare('PRAGMA table_info(staged_images)')
+      .all()
+      .map((r) => (r as { name: string }).name)
+    expect(stagedColumns).toEqual(expect.arrayContaining(['etsy_uploaded_at', 'reject_reason']))
     db2.close()
   })
 

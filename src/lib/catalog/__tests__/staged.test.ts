@@ -7,6 +7,7 @@ import { createDesign, addPiece, addPhoto, listEvents } from '@/lib/catalog/cata
 import {
   createStagedImage, getStagedImage, listStagedForDesign, sceneUsageForDesign,
   approveStagedImage, rejectStagedImage, listApprovedImages, DESTINATIONS, markStagedUploaded,
+  type RejectReason,
 } from '@/lib/catalog/staged'
 
 function tempDbPath(): string {
@@ -60,12 +61,46 @@ describe('staged images', () => {
     const a = stage()
     const b = stage()
     approveStagedImage(db, { staged_id: a, destination: 'pinterest' })
-    rejectStagedImage(db, b)
-    expect(getStagedImage(db, a)).toMatchObject({ status: 'approved', destination: 'pinterest' })
-    expect(getStagedImage(db, b)).toMatchObject({ status: 'rejected', destination: null })
-    const types = listEvents(db).map((e) => e.type)
+    rejectStagedImage(db, b, 'not_wanted')
+    expect(getStagedImage(db, a)).toMatchObject({
+      status: 'approved',
+      destination: 'pinterest',
+      reject_reason: null,
+    })
+    expect(getStagedImage(db, b)).toMatchObject({
+      status: 'rejected',
+      destination: null,
+      reject_reason: 'not_wanted',
+    })
+    const events = listEvents(db)
+    const types = events.map((e) => e.type)
     expect(types).toContain('stage.approved')
     expect(types).toContain('stage.rejected')
+    const rejected = events.find((e) => e.type === 'stage.rejected')
+    expect(JSON.parse(rejected!.payload)).toEqual({ staged_id: b, reason: 'not_wanted' })
+  })
+
+  it('rejects unknown reject reasons without changing the candidate', () => {
+    const a = stage()
+    expect(() => rejectStagedImage(db, a, 'too_dark' as RejectReason)).toThrow(
+      'unknown reject reason "too_dark"'
+    )
+    expect(getStagedImage(db, a)).toMatchObject({
+      status: 'candidate',
+      destination: null,
+      reject_reason: null,
+    })
+  })
+
+  it('clears a previous reject reason when approved', () => {
+    const a = stage()
+    rejectStagedImage(db, a, 'lost_detail')
+    approveStagedImage(db, { staged_id: a, destination: 'social' })
+    expect(getStagedImage(db, a)).toMatchObject({
+      status: 'approved',
+      destination: 'social',
+      reject_reason: null,
+    })
   })
 
   it('rejects unknown destinations', () => {
