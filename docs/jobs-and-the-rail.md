@@ -10,11 +10,17 @@ ever blocks, anything slower than a beat is a job, and jobs live in the rail.
 Every AI operation today runs inside a server action that the page awaits.
 `chatTurnAction` awaits the full agent turn (measured at 65s),
 `stageDesignAction` awaits the whole image batch (about 2 minutes), and the
-form sits pending until the action returns. Refresh kills the request, and
-Next.js serializes server actions per browser session, so a second operation
-started from another page queues behind the first. The freeze and the
-no-concurrency problem are the same bug: the action does the work instead of
-recording that work needs doing.
+form sits pending until the action returns. Refresh kills the request. The
+bug is that the action does the work instead of recording that work needs
+doing, so the page is hostage to it for as long as it runs.
+
+An earlier draft of this section blamed the same symptom on Next.js
+serializing server actions per browser session. That was tested and it does
+not reproduce on Next 15.5.21: two actions fired from separate tabs finished
+in 4143ms and 4128ms against a 3999ms solo baseline, meaning they ran
+concurrently. Do not go looking for a server-side queue, there is not one.
+The freeze is a UI problem, the form awaiting a promise, and enqueue-and-
+return fixes it regardless.
 
 The fix is enqueue-and-return. The action inserts a job row, starts the work
 in the background, and returns a job id in milliseconds. Results were always
