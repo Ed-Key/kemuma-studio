@@ -191,6 +191,40 @@ export function get(db: Db, jobId: number): JobRecord | null {
   return row ?? null
 }
 
+/**
+ * The last thing each of these jobs said it was doing.
+ *
+ * Only 'tool_use' rows, which is what marks a line as written for the owner
+ * rather than kept for replay. Returned as a map so the rail can ask about
+ * every open job in one query instead of one per row.
+ */
+export function latestNarration(db: Db, jobIds: number[]): Map<number, string> {
+  if (jobIds.length === 0) return new Map()
+  const holes = jobIds.map(() => '?').join(', ')
+  const rows = db
+    .prepare(`
+      SELECT job_id, content FROM job_logs
+      WHERE rowid IN (
+        SELECT MAX(rowid) FROM job_logs
+        WHERE job_id IN (${holes}) AND log_type = 'tool_use'
+        GROUP BY job_id
+      )
+    `)
+    .all(...jobIds) as Array<{ job_id: number; content: string }>
+  return new Map(rows.map((row) => [row.job_id, row.content]))
+}
+
+/** How many times this job has already called a given tool. */
+export function countToolCalls(db: Db, jobId: number, toolName: string): number {
+  const row = db
+    .prepare(`
+      SELECT COUNT(*) AS n FROM job_logs
+      WHERE job_id = ? AND log_type = 'tool_use' AND tool_name = ?
+    `)
+    .get(jobId, toolName) as { n: number }
+  return row.n
+}
+
 export function appendLog(
   db: Db,
   input: {
