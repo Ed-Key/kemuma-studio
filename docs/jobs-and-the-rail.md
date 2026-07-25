@@ -163,6 +163,26 @@ the answer is no. In-page pending states switch from awaiting the action to
 watching the job row, so the chat shows the user's message immediately with
 a pending reply row.
 
+That last sentence was written and not built. Enqueue-and-return shipped, so
+the submit button now goes idle the moment the row is inserted, which takes
+milliseconds; the two minutes of actual work then pass with the page looking
+untouched. The rail knew, and the page the work was started from did not.
+
+What closes it: the launcher keeps its button live and grows a `WorkingOrb`
+pill beside it for each running job of that kind, one per batch, wrapping to
+a second line rather than crowding the button. The button is never disabled.
+No cap on concurrent batches was a deliberate decision above, and a button
+that locks itself for two minutes would quietly reverse it; five pills is
+also the honest answer to "how many did I set off". The label is the verb
+and the elapsed time, no estimate.
+
+The pills read the same `/api/jobs` rows the rail reads, filtered to the
+design in view. Not the click. A pill therefore appears on a page loaded
+mid-batch, survives a refresh, and clears when the row says the work
+finished rather than when a timer says so. Both surfaces reading the same
+rows is what keeps them from contradicting each other, which the guardrails
+below require.
+
 ### Stage two: presence (variant B)
 
 The collapsed 50px column gets the marks: a 22px hairline below the nav
