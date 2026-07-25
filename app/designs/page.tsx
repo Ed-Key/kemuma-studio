@@ -14,7 +14,7 @@ import {
   statusFor,
   verbFor,
 } from '@/lib/catalog/card-state'
-import { SHOP_DRAFTS_URL, SHOP_LISTINGS_URL } from '@/lib/etsy/urls'
+import { SHOP_DRAFTS_URL, SHOP_LISTINGS_URL, SHOP_URL } from '@/lib/etsy/urls'
 import { createDesignAction, syncEtsyStatesAction } from './actions'
 import PendingSubmit from '../components/PendingSubmit'
 import ActionForm from '../components/ActionForm'
@@ -253,6 +253,9 @@ export default function DesignsPage() {
           body because its banner carries immediate per-listing details, while
           the catalog keeps the latest failed push visible after navigation. */}
       <div className="catalog-tools">
+        <a className="tool-link" href={SHOP_URL} target="_blank" rel="noreferrer">
+          Storefront
+        </a>
         <a className="tool-link" href={SHOP_LISTINGS_URL} target="_blank" rel="noreferrer">
           Etsy listings
         </a>
