@@ -194,6 +194,9 @@ button:not(:disabled) {
   padding: var(--gutter);
   max-width: calc(var(--content-max) + var(--gutter) * 2);
   width: 100%;
+  /* The cap without the auto margin pinned every page to the left and left a
+     dead column on wide screens: measured 300px of empty at a 1764px viewport. */
+  margin-inline: auto;
 }
 
 .page-head {
@@ -756,6 +759,14 @@ button:not(:disabled) {
   top: 32px;
   display: grid;
   gap: 10px;
+  /* Sticky does nothing for a rail taller than the screen: it scrolls away like
+     normal content until its bottom edge arrives. Four photos made this 1611px
+     in a 946px viewport, so the reference images left the screen exactly when
+     the copy beside them needed checking, and the page grew to 1713px of mostly
+     photos. Capping it to the viewport is what makes sticky mean anything. */
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  align-content: start;
 }
 
 .rail-photo {
