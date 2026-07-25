@@ -47,7 +47,9 @@ describe('scene templates', () => {
   it('never stages readable text props', () => {
     for (const s of SCENES) {
       expect(s.scene.toLowerCase(), s.key).not.toContain('titled')
-      if (s.scene.includes('book')) expect(s.scene, s.key).toMatch(/blank spines?/)
+      // A book stood on a shelf shows its spine; one lying flat shows its
+      // cover. Either way the scene must say outright that it carries no text.
+      if (s.scene.includes('book')) expect(s.scene, s.key).toMatch(/(blank|unmarked) (spines?|covers?)/)
     }
   })
 })

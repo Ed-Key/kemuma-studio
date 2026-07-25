@@ -111,6 +111,63 @@ export const SCENES: SceneTemplate[] = [
     lighting:
       "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: bright diffused backlight from the window softened by the sheer curtain, with the camera-facing surfaces lifted by gentle neutral fill, matching color temperature. Ground it with directionally consistent contact shadows on the sill and a soft cool bounce from the white paint onto its base. Polished stone glows subtly at its rim edges against the light.",
   },
+
+  // Studio looks. The room scenes above place a piece where a buyer would use
+  // it; these place it against a built backdrop instead, the way a maker shoot
+  // does. They carry no furniture and no lifestyle claim, so they suit every
+  // family and they date far more slowly. Drawn from Etsy listings Ed picked
+  // out 2026-07-24; the draped-fabric text was validated live against the blue
+  // leaf dish before landing here.
+  {
+    key: 'draped-fabric',
+    label: 'Draped fabric backdrop',
+    families: FAMILIES,
+    size: '1536x1024',
+    scene:
+      'Photorealistic editorial product photograph on a draped fabric backdrop. Rust-brown cotton falls in soft folds behind and beneath the product, with a panel of white cotton draped at the left edge. One cream linen-bound book with a blank cover lies flat beneath the product as a low plinth. No other props.',
+    lighting:
+      "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: soft diffused daylight from camera left, matching color temperature across its surfaces. Ground it with directionally consistent contact shadows on the book cover and a faint warm bounce from the rust fabric onto its lower edges. Polished stone carries one restrained soft highlight.",
+  },
+  {
+    key: 'hard-sun-wall',
+    label: 'Hard sunlight on a pale wall',
+    families: FAMILIES,
+    size: '1024x1536',
+    scene:
+      'Photorealistic editorial product photograph on a pale cream seamless surface against a matching cream wall, with a strong diagonal band of sunlight and a crisp architectural shadow falling across the background. Nothing else is in frame.',
+    lighting:
+      "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: hard directional sunlight from camera right carving bright highlights and deep defined shading across its carved forms, matching color temperature. Ground it with directionally consistent contact shadows where it meets the surface, extending into one long cast shadow running away from the light, plus a soft bounce from the cream surface into the shaded side. Polished stone shows one sharp specular highlight.",
+  },
+  {
+    key: 'book-stack',
+    label: 'Stacked books plinth',
+    families: FAMILIES,
+    size: '1024x1536',
+    scene:
+      'Photorealistic editorial product photograph on a short stack of two hardback books with plain unmarked covers, set against a lightly textured warm-white plaster wall. One amber glass candle jar with a blank label stands apart from the product as the only prop.',
+    lighting:
+      "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: soft even daylight from camera left with gentle neutral fill, matching color temperature. Ground it with directionally consistent contact shadows on the top book and a short soft shadow on the wall behind. Polished stone holds one quiet diffused highlight.",
+  },
+  {
+    key: 'walnut-plain-wall',
+    label: 'Walnut table, plain wall',
+    families: FAMILIES,
+    size: '1536x1024',
+    scene:
+      'Photorealistic editorial product photograph on a plain walnut tabletop against an unadorned warm-white wall, the clean catalog framing a maker would shoot. Nothing else is in frame.',
+    lighting:
+      "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: broad soft daylight from camera left with even neutral fill, matching color temperature. Ground it with directionally consistent contact shadows on the walnut and a faint warm bounce from the wood onto its lower edges. Polished stone shows one understated highlight.",
+  },
+  {
+    key: 'color-seamless',
+    label: 'Colored seamless backdrop',
+    families: FAMILIES,
+    size: '1536x1024',
+    scene:
+      'Photorealistic editorial product photograph on a flat matte seamless backdrop that curves gently from surface to wall with no visible horizon line. The backdrop is a single muted desaturated tone chosen to sit opposite the product\'s own color on the wheel so the carving reads clearly against it. No props.',
+    lighting:
+      "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: soft broad studio light from camera left with a gentle fill on the opposite side, matching color temperature. Ground it with one directionally consistent contact shadow pooling close beneath the product. Polished stone carries one soft even highlight.",
+  },
 ]
 
 export function getScene(key: string): SceneTemplate {
