@@ -91,6 +91,11 @@ a couple of thousand characters, and tool inputs redacted before logging.
 This is richer than stuffing the shared `events` table and makes any past
 run replayable step by step, which the eval work will want.
 
+Text blocks are logged from day one, but display stays conservative: the
+rail's narration line shows tool events first, and whether the agent's own
+streamed words ever surface there is a stage four decision made after
+seeing how they read. Store everything, show judiciously.
+
 ### Enqueue-and-return
 
 Each converted server action becomes: validate input, insert the job row,
@@ -148,8 +153,11 @@ The collapsed 50px column gets the marks: a 22px hairline below the nav
 glyphs, then the stack, newest first. Orbs at 15px, the failed square at
 13px. Nothing but marks at 50px; hover opens the rail as it already does
 and the marks gain names. Reduced motion inherits `WorkingOrb`'s dot
-fallback. Mock reference: the round-one artifact, variant B, with the open
-state as shown there.
+fallback. Mock reference: the round-one artifact at
+an internal mock,
+variant B for the collapsed column and the single open-rail frame for the
+hovered state (names in the sans, timers in the mono with tabular figures,
+narration in the third text color).
 
 ### Stage three: the switchboard
 
@@ -200,6 +208,24 @@ machine-graded failures; and the approve and reject clicks on staged
 scenes are human labels the db already stores. When an eval design is
 worth writing, it gets its own doc; nothing in this plan needs to change
 for it, which is the point of writing these columns down now.
+
+## Working conventions for the build
+
+- This repo is not yet on GitHub. No branches, no PRs: commit plainly to
+  main with conventional commits, and put the judgment calls in commit
+  bodies. The owner will push the repo publicly once the foundation
+  (including this work) is in and tested; the history should read well
+  when that happens.
+- Each stage begins with a short walkthrough, before any code: what the
+  the reference runner counterpart does (file references on both sides), then what
+  changes in our port and why. The owner wants the reference architecture
+  demystified as it is ported, not just used. Stage one's walkthrough
+  pairs `the reference runner/server/heartbeat.ts` with our sweep and
+  `the reference runner/server/execution-agent.ts` (the `onText` / `onToolUse` /
+  `onToolResult` callbacks) with our executor wrapper.
+- Verification: `npm test` (vitest) and `npm run build`, plus a look in
+  the browser under `npm run dev`. The stale sweep and enqueue paths
+  should get real tests alongside the existing `__tests__` suites.
 
 ## Guardrails
 
