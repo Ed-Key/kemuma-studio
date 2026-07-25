@@ -1,12 +1,27 @@
 import sharp from 'sharp'
 
 // Fixed scale shared by every card so pieces render at true relative size.
-export const PX_PER_IN = 160
+// Set so the tallest piece in the catalog (the 8 inch Lovers Embrace) still
+// clears the header. At the previous 160 anything 8 inches or over started
+// above the subtitle baseline and the carving printed straight through
+// "HAND-CARVED KISII SOAPSTONE". Raising this again means re-checking that.
+export const PX_PER_IN = 146
 
 const CANVAS = 2000
 const GROUND = 1520
+// Lowest y the product may start at. The subtitle sits on a 282 baseline in a
+// 38px face, so this leaves room for descenders plus breathing space.
+const HEADER_CLEAR = 348
 const INK = '#3f3e3b'
 const SOFT = '#97948e'
+
+/** Where the product's top edge lands, and the scale used to get it there.
+ *  Exported so the header-clearance rule can be tested as arithmetic rather
+ *  than by eyeballing a rendered PNG. */
+export function productLayout(heightIn: number): { scalePerIn: number; topY: number } {
+  const scalePerIn = Math.min(PX_PER_IN, (GROUND - HEADER_CLEAR) / heightIn)
+  return { scalePerIn, topY: GROUND - Math.round(heightIn * scalePerIn) }
+}
 
 export async function composeDimensionCard(input: {
   cutout: Buffer
@@ -18,7 +33,12 @@ export async function composeDimensionCard(input: {
     throw new Error('dimensions must be positive to render a card')
   }
   const meta = await sharp(input.cutout).metadata()
-  const targetH = Math.round(input.heightIn * PX_PER_IN)
+  // The shared scale is what makes two cards comparable, so it wins whenever it
+  // fits. A piece taller than the catalog has ever held shrinks to clear the
+  // header rather than printing through it; if this ever fires, lower
+  // PX_PER_IN instead so the whole set stays at one honest scale.
+  const { scalePerIn } = productLayout(input.heightIn)
+  const targetH = Math.round(input.heightIn * scalePerIn)
   const scale = targetH / meta.height!
   const targetW = Math.round(meta.width! * scale)
   const product = await sharp(input.cutout).resize(targetW, targetH).png().toBuffer()

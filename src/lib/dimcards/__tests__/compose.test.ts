@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import sharp from 'sharp'
-import { composeDimensionCard, PX_PER_IN } from '@/lib/dimcards/compose'
+import { composeDimensionCard, productLayout, PX_PER_IN } from '@/lib/dimcards/compose'
 
 async function syntheticCutout(w: number, h: number): Promise<Buffer> {
   return sharp({
@@ -23,7 +23,7 @@ describe('composeDimensionCard', () => {
   })
 
   it('scales the product to the fixed pixels-per-inch', async () => {
-    expect(PX_PER_IN).toBe(160)
+    expect(PX_PER_IN).toBe(146)
     // An 8-inch product must render taller than a 4-inch one on the shared scale.
     const tall = await composeDimensionCard({
       cutout: await syntheticCutout(200, 800), title: 'Tall', heightIn: 8, widthIn: 2,
@@ -44,5 +44,25 @@ describe('composeDimensionCard', () => {
     await expect(
       composeDimensionCard({ cutout: await syntheticCutout(10, 10), title: 'x', heightIn: 0, widthIn: 2 })
     ).rejects.toThrow(/positive/)
+  })
+})
+
+describe('productLayout', () => {
+  // The 8 inch Lovers Embrace printed straight through the subtitle at the old
+  // 160 px/in, because nothing checked that the carving cleared the header.
+  it('keeps every catalog height clear of the subtitle', () => {
+    for (const heightIn of [1, 3, 4, 6, 7, 8]) {
+      expect(productLayout(heightIn).topY, `${heightIn}in`).toBeGreaterThan(300)
+    }
+  })
+
+  it('holds one shared scale across the catalog so two cards stay comparable', () => {
+    expect(productLayout(3).scalePerIn).toBe(PX_PER_IN)
+    expect(productLayout(8).scalePerIn).toBe(PX_PER_IN)
+  })
+
+  it('shrinks a piece taller than the card rather than overprinting the header', () => {
+    expect(productLayout(12).scalePerIn).toBeLessThan(PX_PER_IN)
+    expect(productLayout(12).topY).toBeGreaterThan(300)
   })
 })
