@@ -1774,10 +1774,11 @@ input[type='radio'] {
   transform-origin: center;
 }
 
-/* No colour prop on the orb, so outcome is tinted. The ink is drawn as a grey
-   on a transparent canvas, so sepia plus a hue turn colours the dots without
-   touching the drawing itself. Running stays the neutral ink: colour here means
-   the job has landed, and only motion means it is still going. */
+/* Outcome is already in the shape a finished job folds to; the tint says it a
+   second way, for the glance that catches colour before form. No colour prop
+   on the orb, but the ink is a grey on a transparent canvas, so sepia plus a
+   hue turn colours the dots without touching the drawing. Running stays
+   neutral: any tint at all means the job is over. */
 .job-mark--done canvas {
   filter: sepia(1) saturate(3.2) hue-rotate(97deg) brightness(0.82);
 }

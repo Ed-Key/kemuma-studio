@@ -3,8 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ThinkingOrb } from 'thinking-orbs'
-import { useReducedMotion } from './WorkingOrb'
+import { JobMark } from './JobMark'
 
 /* The rail shows itself once on load, then gets out of the way. Leaving it
    waits a beat so a pointer that clips the corner on its way past does not snap
@@ -21,6 +20,10 @@ type RailJob = {
   created_at: string
   started_at: string | null
   finished_at: string | null
+}
+
+function isTerminal(status: RailJob['status']): boolean {
+  return status !== 'queued' && status !== 'running'
 }
 
 const NAV = [
@@ -64,28 +67,6 @@ const NAV = [
  *  timers so it has to be a client component and cannot query the db itself. */
 export type NavCounts = Record<string, number>
 
-/**
- * One mark per job, the same at 50px and open.
- *
- * Shape says "this is a job" and never varies. Motion means running and only
- * running, so a finished job is the same orb held still, and colour carries the
- * outcome: green landed, red failed, amber interrupted. Running keeps the
- * neutral ink, which makes the tint itself a signal that the job is over.
- */
-function JobMark({ status }: { status: RailJob['status'] }) {
-  const reduced = useReducedMotion()
-  const running = status === 'running'
-  return (
-    <span className={`job-mark job-mark--${status}`} aria-hidden="true">
-      {/* "listening" is the state that survives this size: its latitude rings
-          hold a circle, where the default "working" is particles on tilted
-          orbits and reads as loose specks. The package has no colour prop, so
-          the outcome tints arrive as filters in globals.css. */}
-      <ThinkingOrb state="listening" size={20} theme="light" paused={!running || reduced} />
-    </span>
-  )
-}
-
 function formatElapsed(job: RailJob, now: number): string {
   const started = Date.parse(job.started_at ?? job.created_at)
   const finished = job.finished_at ? Date.parse(job.finished_at) : now
@@ -103,7 +84,11 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
   const [collapsed, setCollapsed] = useState(false)
   const [jobs, setJobs] = useState<RailJob[]>([])
   const [now, setNow] = useState(() => Date.now())
+  const [settling, setSettling] = useState<ReadonlySet<number>>(() => new Set())
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /* Lives in a ref, not state, so it survives the rail swapping between its
+     collapsed and open branches without replaying anything. */
+  const lastStatus = useRef(new Map<number, RailJob['status']>())
 
   const arm = useCallback((ms: number) => {
     if (timer.current) clearTimeout(timer.current)
@@ -156,6 +141,35 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
   useEffect(() => {
     const elapsedTimer = setInterval(() => setNow(Date.now()), ELAPSED_TICK_MS)
     return () => clearInterval(elapsedTimer)
+  }, [])
+
+  /* The fold from sphere to shape is the one piece of motion in the rail that
+     is not "still running", so it has to mean a job actually landed just now.
+     A job already finished when the page loaded gets its resting shape with no
+     animation, and a poll that changes nothing animates nothing. */
+  useEffect(() => {
+    const before = lastStatus.current
+    const landed = jobs
+      .filter((job) => {
+        const was = before.get(job.job_id)
+        return was != null && !isTerminal(was) && isTerminal(job.status)
+      })
+      .map((job) => job.job_id)
+
+    const present = new Set(jobs.map((job) => job.job_id))
+    for (const id of before.keys()) if (!present.has(id)) before.delete(id)
+    for (const job of jobs) before.set(job.job_id, job.status)
+
+    if (landed.length > 0) setSettling((current) => new Set([...current, ...landed]))
+  }, [jobs])
+
+  const settled = useCallback((jobId: number) => {
+    setSettling((current) => {
+      if (!current.has(jobId)) return current
+      const next = new Set(current)
+      next.delete(jobId)
+      return next
+    })
   }, [])
 
   return (
@@ -213,7 +227,12 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
              already came from. Names wait for hover; nothing but marks here. */
           <section className="rail-marks" aria-label={`${jobs.length} jobs`}>
             {jobs.map((job) => (
-              <JobMark key={job.job_id} status={job.status} />
+              <JobMark
+                key={job.job_id}
+                status={job.status}
+                settle={settling.has(job.job_id)}
+                onSettled={() => settled(job.job_id)}
+              />
             ))}
           </section>
         )}
@@ -222,7 +241,11 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
             {jobs.map((job) => (
               <div className="rail-job" key={job.job_id}>
                 <div className="rail-job-head">
-                  <JobMark status={job.status} />
+                  <JobMark
+                    status={job.status}
+                    settle={settling.has(job.job_id)}
+                    onSettled={() => settled(job.job_id)}
+                  />
                   <span className="rail-job-title">{job.title}</span>
                 </div>
                 <div className="rail-job-meta">
