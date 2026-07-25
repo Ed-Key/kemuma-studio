@@ -212,12 +212,24 @@ targets from the round-one variant D graft onto B's layout here.
 
 The narration line. Each tool call in the agent loop writes an event
 ("reading photos 45, 46, 47"), and the running job's row shows the latest
-one with the shimmer treatment in the third text color. Then the streaming
-piece: the agent API call switches to streaming, and the partial JSON of
-the `plan_batch` call reveals which of the six plan sections is being
-written, so the long compose gap honestly reads "writing the product lock"
-instead of nothing. A validator rejection surfaces as "plan rejected,
-rewriting", which is real information about why a turn ran long.
+one in the third text color. The batches have no loop to listen to, so they
+report the boundaries that are real instead: directing the scene, then
+generating the scenes, and a rejected direction in between. The generation
+itself is one opaque wait and stays one; inventing steps inside it would be
+inventing progress.
+
+Two things the first real turn taught, both now built. The director called
+`plan_batch` four times while the rail said "writing the plan" over and
+over, which made a turn that was failing look like one that was stuck; a
+repeated call is a validator rejection and nothing else, so it says so. And
+the log_type is what marks a row as written for the owner: `tool_use` rows
+are phrased for them and are what the rail reads, while the agent's own
+prose is stored as `text` for replay and never shown.
+
+Still open: streaming. The agent call is not streamed, so the long compose
+gap inside a single `plan_batch` is still silent. Streaming the partial
+JSON would let it read "writing the product lock" rather than nothing, and
+that is the remaining half of this stage.
 
 ## What we studied and chose not to copy
 
