@@ -1729,3 +1729,70 @@ input[type='radio'] {
 .toast--danger {
   border-left-color: var(--danger);
 }
+
+/* ---- Job marks -----------------------------------------------------------
+   Stage two of docs/jobs-and-the-rail.md. Collapsed, the rail says only
+   whether anything is alive, waiting, or in trouble; identity waits for hover.
+   Motion means running and nothing else, and it is driven by the job's real
+   state, never a timer. */
+.rail-marks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  margin-top: 16px;
+  padding-top: 14px;
+  position: relative;
+}
+
+/* A 22px hairline, not the full width, so the marks read as their own section
+   without drawing a line across the column. */
+.rail-marks::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 22px;
+  transform: translateX(-50%);
+  border-top: 1px solid var(--border);
+}
+
+.job-mark {
+  flex: none;
+  display: block;
+  width: 20px;
+  height: 20px;
+  /* The sphere is drawn larger than the box it occupies, so it reads at a
+     legible size without changing the rhythm of the stack or the width of the
+     collapsed rail. */
+  overflow: visible;
+}
+
+.job-mark canvas {
+  display: block;
+  transform: scale(1.35);
+  transform-origin: center;
+}
+
+/* No colour prop on the orb, so outcome is tinted. The ink is drawn as a grey
+   on a transparent canvas, so sepia plus a hue turn colours the dots without
+   touching the drawing itself. Running stays the neutral ink: colour here means
+   the job has landed, and only motion means it is still going. */
+.job-mark--done canvas {
+  filter: sepia(1) saturate(3.2) hue-rotate(97deg) brightness(0.82);
+}
+
+.job-mark--failed canvas {
+  filter: sepia(1) saturate(6) hue-rotate(-28deg) brightness(0.85);
+}
+
+.job-mark--interrupted canvas {
+  filter: sepia(1) saturate(4) hue-rotate(-2deg) brightness(1.05);
+}
+
+.rail-job-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}

@@ -7,7 +7,7 @@ export type { OrbState }
 
 type OrbSize = 'pill' | 'fill'
 
-function useReducedMotion() {
+export function useReducedMotion() {
   const [reduced, setReduced] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')

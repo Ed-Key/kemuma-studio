@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ThinkingOrb } from 'thinking-orbs'
+import { useReducedMotion } from './WorkingOrb'
 
 /* The rail shows itself once on load, then gets out of the way. Leaving it
    waits a beat so a pointer that clips the corner on its way past does not snap
@@ -61,6 +63,28 @@ const NAV = [
 /** Read in the layout, which is a server component; the rail owns the collapse
  *  timers so it has to be a client component and cannot query the db itself. */
 export type NavCounts = Record<string, number>
+
+/**
+ * One mark per job, the same at 50px and open.
+ *
+ * Shape says "this is a job" and never varies. Motion means running and only
+ * running, so a finished job is the same orb held still, and colour carries the
+ * outcome: green landed, red failed, amber interrupted. Running keeps the
+ * neutral ink, which makes the tint itself a signal that the job is over.
+ */
+function JobMark({ status }: { status: RailJob['status'] }) {
+  const reduced = useReducedMotion()
+  const running = status === 'running'
+  return (
+    <span className={`job-mark job-mark--${status}`} aria-hidden="true">
+      {/* "listening" is the state that survives this size: its latitude rings
+          hold a circle, where the default "working" is particles on tilted
+          orbits and reads as loose specks. The package has no colour prop, so
+          the outcome tints arrive as filters in globals.css. */}
+      <ThinkingOrb state="listening" size={20} theme="light" paused={!running || reduced} />
+    </span>
+  )
+}
 
 function formatElapsed(job: RailJob, now: number): string {
   const started = Date.parse(job.started_at ?? job.created_at)
@@ -184,11 +208,23 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
             )
           })}
         </nav>
+        {collapsed && jobs.length > 0 && (
+          /* Newest first, so the thing just started is nearest the nav the eye
+             already came from. Names wait for hover; nothing but marks here. */
+          <section className="rail-marks" aria-label={`${jobs.length} jobs`}>
+            {jobs.map((job) => (
+              <JobMark key={job.job_id} status={job.status} />
+            ))}
+          </section>
+        )}
         {!collapsed && jobs.length > 0 && (
           <section className="rail-jobs" aria-label="Jobs">
             {jobs.map((job) => (
               <div className="rail-job" key={job.job_id}>
-                <div className="rail-job-title">{job.title}</div>
+                <div className="rail-job-head">
+                  <JobMark status={job.status} />
+                  <span className="rail-job-title">{job.title}</span>
+                </div>
                 <div className="rail-job-meta">
                   <time className="rail-job-elapsed">
                     {formatElapsed(job, now)}
