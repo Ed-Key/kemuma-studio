@@ -64,7 +64,7 @@ export async function stageDesignAction(_prev: ActionResult | null, formData: Fo
       destination,
       input,
     })
-    startJob(db, jobId, () => runJobOperation(db, input))
+    startJob(db, jobId, () => runJobOperation(db, input, jobId))
     return { ok: true, message: 'Staging started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not stage the design.', detail: errText(err) }
@@ -244,7 +244,7 @@ export async function chatTurnAction(_prev: ActionResult | null, formData: FormD
       destination,
       input,
     })
-    startJob(db, jobId, () => runJobOperation(db, input))
+    startJob(db, jobId, () => runJobOperation(db, input, jobId))
     return { ok: true, message: 'The staging director is working in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'The staging director could not respond.', detail: errText(err) }
@@ -276,7 +276,7 @@ export async function executePlanAction(_prev: ActionResult | null, formData: Fo
       destination,
       input,
     })
-    startJob(db, jobId, () => runJobOperation(db, input))
+    startJob(db, jobId, () => runJobOperation(db, input, jobId))
     return { ok: true, message: 'The planned batch started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not run the chat plan.', detail: errText(err) }

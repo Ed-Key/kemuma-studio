@@ -30,7 +30,7 @@ export async function generateDraftAction(_prev: ActionResult | null, formData: 
       destination,
       input,
     })
-    startJob(db, jobId, () => runJobOperation(db, input))
+    startJob(db, jobId, () => runJobOperation(db, input, jobId))
     return { ok: true, message: 'Listing copy started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not write the listing.', detail: errText(err) }

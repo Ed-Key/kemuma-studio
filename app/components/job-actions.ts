@@ -79,7 +79,7 @@ export async function retryJobAction(
       input,
     })
     markSeen(db, jobId)
-    startJob(db, retryId, () => runJobOperation(db, input))
+    startJob(db, retryId, () => runJobOperation(db, input, retryId))
     revalidatePath(job.destination)
     return { ok: true, message: 'Running it again in the rail.', jobId: retryId }
   } catch (err) {

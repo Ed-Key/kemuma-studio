@@ -25,9 +25,21 @@ function imageGeneratorFrom(deps: ImageGeneratorDeps): ImageGenerator {
 export async function runStaging(
   db: Db,
   deps: { artDirector: ArtDirector } & ImageGeneratorDeps,
-  input: { designId: number; dataDir: string; sceneKey?: string; sourcePhotoId?: number; n?: number; variance?: boolean }
+  input: {
+    designId: number
+    dataDir: string
+    sceneKey?: string
+    sourcePhotoId?: number
+    n?: number
+    variance?: boolean
+    /* Called at the real boundaries of the work so a caller can say what is
+       happening. There are only a few, and inventing more would be inventing
+       progress: the generation itself is one opaque wait. */
+    onPhase?: (text: string) => void
+  }
 ): Promise<number[]> {
   const n = input.n ?? 4
+  const phase = input.onPhase ?? (() => {})
   const imageGenerator = imageGeneratorFrom(deps)
   const detail = getDesignDetail(db, input.designId)
   if (!detail) throw new Error(`design ${input.designId} not found`)
@@ -104,6 +116,7 @@ export async function runStaging(
     const references = await Promise.all(photoPaths.map((p) => prepareReference(p, scene.size)))
 
     const userText = buildVarianceDirectorUserText({ ...baseInput, referenceCount: photoPaths.length })
+    phase(`directing four arrangements on the ${scene.label.toLowerCase()}`)
     let out = await deps.artDirector.directVaried(userText, directorImages)
     let directorIn = out.input_tokens
     let directorOut = out.output_tokens
@@ -122,6 +135,9 @@ export async function runStaging(
     let errors = prompts.flatMap((p) => validateStagingPrompt(p))
     if (errors.length > 0) {
       const feedback = `${userText}\n\nYour previous sections broke these prompt rules; fix them:\n- ${[...new Set(errors)].join('\n- ')}`
+      // Worth saying out loud. A rejected direction is the honest reason a
+      // batch is taking twice as long as usual.
+      phase('the direction broke the prompt rules, asking again')
       out = await deps.artDirector.directVaried(feedback, directorImages)
       directorIn += out.input_tokens
       directorOut += out.output_tokens
@@ -130,6 +146,7 @@ export async function runStaging(
       if (errors.length > 0) throw new Error(`staging prompt failed validation after retry: ${[...new Set(errors)].join('; ')}`)
     }
 
+    phase(`generating ${prompts.length} scenes`)
     const batches = await Promise.all(
       prompts.map((p) =>
         imageGenerator.generate({ references, prompt: p, size: scene.size, n: 1 })
@@ -150,6 +167,7 @@ export async function runStaging(
 
   let directorIn = 0
   let directorOut = 0
+  phase(`directing the ${scene.label.toLowerCase()}`)
   let out = await deps.artDirector.direct(userText, directorImage)
   directorIn += out.input_tokens
   directorOut += out.output_tokens
@@ -157,6 +175,7 @@ export async function runStaging(
   let errors = validateStagingPrompt(prompt)
   if (errors.length > 0) {
     const feedback = `${userText}\n\nYour previous sections broke these prompt rules; fix them:\n- ${errors.join('\n- ')}`
+    phase('the direction broke the prompt rules, asking again')
     out = await deps.artDirector.direct(feedback, directorImage)
     directorIn += out.input_tokens
     directorOut += out.output_tokens
@@ -166,6 +185,7 @@ export async function runStaging(
   }
 
   const reference = await prepareReference(photoPath, scene.size)
+  phase(`generating ${n} scenes`)
   const batch = await imageGenerator.generate({ references: [reference], prompt, size: scene.size, n })
 
   const directorCost = computeCostUsd(deps.artDirector.label, directorIn, directorOut) ?? 0
@@ -180,8 +200,14 @@ export async function runStaging(
 export async function runPlannedBatch(
   db: Db,
   deps: ImageGeneratorDeps,
-  input: { designId: number; dataDir: string; plan: StagingPlan }
+  input: {
+    designId: number
+    dataDir: string
+    plan: StagingPlan
+    onPhase?: (text: string) => void
+  }
 ): Promise<number[]> {
+  const phase = input.onPhase ?? (() => {})
   const imageGenerator = imageGeneratorFrom(deps)
   const errors = validatePlan(db, input.designId, input.plan)
   if (errors.length > 0) throw new Error(`plan failed validation: ${errors.join('; ')}`)
@@ -193,6 +219,7 @@ export async function runPlannedBatch(
   const references = await Promise.all(photoPaths.map((p) => prepareReference(p, input.plan.size)))
   const prompt = assemblePlanPrompt(input.plan)
 
+  phase(`generating ${input.plan.n} scenes from the plan`)
   const batch = await imageGenerator.generate({
     references,
     prompt,

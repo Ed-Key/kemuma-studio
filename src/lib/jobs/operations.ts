@@ -2,7 +2,10 @@ import { revalidatePath } from 'next/cache'
 import type { Db } from '@/lib/catalog/db'
 import { dataDir } from '@/lib/catalog/instance'
 import type { JobUsage } from '@/lib/catalog/jobs'
+import { narrator, type JobStep } from './narrate'
 import { computeCostUsd } from '@/lib/writer/prices'
+
+type Say = (step: JobStep) => void
 
 /**
  * What each kind of job actually does, named rather than closed over.
@@ -35,7 +38,8 @@ function stagingDestination(designId: number): string {
 
 async function runStagingBatch(
   db: Db,
-  input: Extract<JobInput, { kind: 'staging_batch' }>
+  input: Extract<JobInput, { kind: 'staging_batch' }>,
+  say: Say
 ): Promise<JobUsage> {
   const { defaultArtDirector } = await import('@/lib/staging/direct-openai')
   const { defaultImageGenerator } = await import('@/lib/staging/images-codex')
@@ -53,6 +57,7 @@ async function runStagingBatch(
       sceneKey: input.sceneKey,
       sourcePhotoId: input.sourcePhotoId,
       variance: input.variance,
+      onPhase: (text) => say({ kind: 'phase', text }),
     }
   )
   const cost = ids.reduce((sum, id) => sum + (getStagedImage(db, id)?.cost_usd ?? 0), 0)
@@ -65,7 +70,8 @@ async function runStagingBatch(
 
 async function runDirectorTurn(
   db: Db,
-  input: Extract<JobInput, { kind: 'director_turn' }>
+  input: Extract<JobInput, { kind: 'director_turn' }>,
+  say: Say
 ): Promise<JobUsage> {
   const call = { designId: input.designId, chatId: input.chatId, userText: input.userText }
   const destination = stagingDestination(input.designId)
@@ -73,7 +79,9 @@ async function runDirectorTurn(
 
   if (spec.startsWith('claude-sub:')) {
     const { runAgentTurnViaClaudeSdk } = await import('@/lib/staging/agent-claude-sdk')
-    const result = await runAgentTurnViaClaudeSdk(db, call)
+    // The stream was already being reported frame by frame and dropped on the
+    // floor by every caller. This is the listener it was built for.
+    const result = await runAgentTurnViaClaudeSdk(db, call, { onStep: say })
     const model = `claude-sub:${spec.slice('claude-sub:'.length) || 'default'}`
     revalidatePath(destination)
     return {
@@ -97,7 +105,8 @@ async function runDirectorTurn(
 
 async function runPlanned(
   db: Db,
-  input: Extract<JobInput, { kind: 'planned_batch' }>
+  input: Extract<JobInput, { kind: 'planned_batch' }>,
+  say: Say
 ): Promise<JobUsage> {
   const { StagingPlanSchema } = await import('@/lib/staging/plan')
   const { runPlannedBatch } = await import('@/lib/staging/stage')
@@ -113,7 +122,12 @@ async function runPlanned(
   const ids = await runPlannedBatch(
     db,
     { imageGenerator },
-    { designId: input.designId, dataDir: dataDir(), plan }
+    {
+      designId: input.designId,
+      dataDir: dataDir(),
+      plan,
+      onPhase: (text) => say({ kind: 'phase', text }),
+    }
   )
   const cost = ids.reduce((sum, id) => sum + (getStagedImage(db, id)?.cost_usd ?? 0), 0)
   setPendingPlan(db, input.chatId, null)
@@ -143,15 +157,22 @@ async function runListingCopy(
   }
 }
 
-/** Run one job's work. The single place that maps a kind onto its executor. */
-export function runJobOperation(db: Db, input: JobInput): Promise<JobUsage> {
+/**
+ * Run one job's work. The single place that maps a kind onto its executor.
+ *
+ * The job id is here only so the work can say what it is doing. It is optional
+ * because the operations are the same work either way, and a run with nobody
+ * listening should not have to invent a listener.
+ */
+export function runJobOperation(db: Db, input: JobInput, jobId?: number): Promise<JobUsage> {
+  const step = jobId === undefined ? () => {} : narrator(db, jobId)
   switch (input.kind) {
     case 'staging_batch':
-      return runStagingBatch(db, input)
+      return runStagingBatch(db, input, step)
     case 'director_turn':
-      return runDirectorTurn(db, input)
+      return runDirectorTurn(db, input, step)
     case 'planned_batch':
-      return runPlanned(db, input)
+      return runPlanned(db, input, step)
     case 'listing_copy':
       return runListingCopy(db, input)
   }
