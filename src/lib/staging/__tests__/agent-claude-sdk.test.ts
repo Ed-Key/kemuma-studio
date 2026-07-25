@@ -115,4 +115,127 @@ describe('runAgentTurnViaClaudeSdk', () => {
     expect(JSON.stringify(capture.promptMessages)).toContain('warm dresser scene')
     expect(JSON.stringify(capture.promptMessages)).toContain('second request')
   })
+
+  describe('streaming a plan as it is written', () => {
+    /** A plan_batch call arriving the way the API sends it: a start, a run of
+     *  partial JSON, a stop, then the finished assistant message. */
+    function streamingQuery(chunks: string[]): typeof query {
+      return ((params: QueryParams) =>
+        (async function* () {
+          for await (const _ of params.prompt as AsyncIterable<unknown>) void _
+          yield {
+            type: 'stream_event',
+            event: {
+              type: 'content_block_start',
+              index: 0,
+              content_block: { type: 'tool_use', id: 'toolu_1', name: 'mcp__staging__plan_batch' },
+            },
+          }
+          for (const partial_json of chunks) {
+            yield {
+              type: 'stream_event',
+              event: {
+                type: 'content_block_delta',
+                index: 0,
+                delta: { type: 'input_json_delta', partial_json },
+              },
+            }
+          }
+          yield { type: 'stream_event', event: { type: 'content_block_stop', index: 0 } }
+          yield {
+            type: 'assistant',
+            message: {
+              content: [
+                { type: 'tool_use', id: 'toolu_1', name: 'mcp__staging__plan_batch', input: {} },
+              ],
+            },
+          }
+          yield {
+            type: 'result',
+            subtype: 'success',
+            result: 'Plan saved.',
+            usage: { input_tokens: 10, output_tokens: 5 },
+          }
+        })()) as unknown as typeof query
+    }
+
+    it('reports each section as the director reaches it', async () => {
+      const steps: unknown[] = []
+      await runAgentTurnViaClaudeSdk(
+        db,
+        { designId, chatId, userText: 'stage it' },
+        {
+          queryFn: streamingQuery([
+            '{"scene":"a warm walnut',
+            ' side table","lighting":"evening lamp',
+            ' off frame","product_lock":"do not',
+            ' alter the carving"}',
+          ]),
+          onStep: (step) => steps.push(step),
+        }
+      )
+
+      expect(steps).toEqual([
+        { kind: 'tool', name: 'plan_batch', input: {} },
+        { kind: 'writing', section: 'scene' },
+        { kind: 'writing', section: 'lighting' },
+        { kind: 'writing', section: 'product_lock' },
+        { kind: 'done', turns: undefined },
+      ])
+    })
+
+    it('announces the call once, from the stream rather than twice', async () => {
+      // The finished assistant message carries the same tool_use id, and
+      // reporting it again would say "writing the plan" after the plan was
+      // already written.
+      const steps: Array<{ kind: string }> = []
+      await runAgentTurnViaClaudeSdk(
+        db,
+        { designId, chatId, userText: 'stage it' },
+        {
+          queryFn: streamingQuery(['{"scene":"x"}']),
+          onStep: (step) => steps.push(step),
+        }
+      )
+      expect(steps.filter((step) => step.kind === 'tool')).toHaveLength(1)
+    })
+
+    it('is not fooled by a section name written inside a value', async () => {
+      // Taken from a real turn: the director named product_lock inside one of
+      // its exclusions, and a plain text search read that as arriving back at
+      // the product lock, so the rail showed it walking backwards through its
+      // own plan.
+      const steps: Array<{ section?: string }> = []
+      await runAgentTurnViaClaudeSdk(
+        db,
+        { designId, chatId, userText: 'stage it' },
+        {
+          queryFn: streamingQuery([
+            '{"product_lock":"do not alter the carving"',
+            ',"extra_exclusions":["nothing that fights the ',
+            '\\"product_lock\\" above"]',
+            ',"n":4}',
+          ]),
+          onStep: (step) => steps.push(step),
+        }
+      )
+      const sections = steps.filter((s) => s.section).map((s) => s.section)
+      expect(sections).toEqual(['product_lock', 'extra_exclusions', 'n'])
+    })
+
+    it('waits for a key to finish arriving before naming it', async () => {
+      // Field names stream in pieces like everything else, and half of one is
+      // not a field name.
+      const steps: Array<{ section?: string }> = []
+      await runAgentTurnViaClaudeSdk(
+        db,
+        { designId, chatId, userText: 'stage it' },
+        {
+          queryFn: streamingQuery(['{"prod', 'uct_lock":"do not alter', ' the carving"}']),
+          onStep: (step) => steps.push(step),
+        }
+      )
+      expect(steps.filter((s) => s.section).map((s) => s.section)).toEqual(['product_lock'])
+    })
+  })
 })

@@ -108,7 +108,81 @@ function stagingMcpServer(db: Db, input: { designId: number; chatId: number }) {
 export type AgentStep =
   | { kind: 'tool'; name: string; input: unknown }
   | { kind: 'say'; text: string }
+  | { kind: 'writing'; section: string }
   | { kind: 'done'; turns: number }
+
+const PLAN_SECTIONS = new Set([
+  'scene',
+  'lighting',
+  'subject_and_count',
+  'composition',
+  'product_lock',
+  'extra_exclusions',
+  'size',
+  'n',
+  'reference_photo_ids',
+])
+
+/**
+ * Which field a half-written tool call is currently on.
+ *
+ * Searching the text for the field names looks sufficient and is not. A real
+ * turn wrote the phrase "product_lock" inside one of its exclusions, and the
+ * line jumped back from the exclusions to the product lock, so the rail
+ * reported the director going backwards through its own plan.
+ *
+ * So this walks the JSON instead, counting a name only where a name can be:
+ * at the top level of the object, outside any string. An unterminated string
+ * at the end is the value being typed right now, which is exactly why the key
+ * before it is the answer.
+ */
+function sectionInProgress(partialJson: string): string | null {
+  let latest: string | null = null
+  let depth = 0
+  let i = 0
+
+  while (i < partialJson.length) {
+    const char = partialJson[i]
+    if (char === '{' || char === '[') {
+      depth++
+      i++
+      continue
+    }
+    if (char === '}' || char === ']') {
+      depth--
+      i++
+      continue
+    }
+    if (char !== '"') {
+      i++
+      continue
+    }
+
+    let end = i + 1
+    let text = ''
+    while (end < partialJson.length && partialJson[end] !== '"') {
+      if (partialJson[end] === '\\') {
+        text += partialJson[end + 1] ?? ''
+        end += 2
+        continue
+      }
+      text += partialJson[end]
+      end++
+    }
+    // Ran off the end: this string is still being written, and everything
+    // after it has not arrived yet.
+    if (end >= partialJson.length) break
+
+    let after = end + 1
+    while (after < partialJson.length && /\s/.test(partialJson[after])) after++
+    if (depth === 1 && partialJson[after] === ':' && PLAN_SECTIONS.has(text)) {
+      latest = text
+    }
+    i = end + 1
+  }
+
+  return latest
+}
 
 export async function runAgentTurnViaClaudeSdk(
   db: Db,
@@ -129,6 +203,10 @@ export async function runAgentTurnViaClaudeSdk(
   let result: SDKResultMessage | undefined
 
   const step = opts?.onStep ?? (() => {})
+  /* The plan_batch call currently being composed, if one is. `index` pins the
+     deltas to it: other content blocks stream in the same event sequence. */
+  let plan: { index: number; json: string; section: string | null } | null = null
+  const streamedPlanCalls = new Set<string>()
 
   for await (const message of queryFn({
     prompt: agentPrompt(prior, input.userText),
@@ -152,6 +230,10 @@ export async function runAgentTurnViaClaudeSdk(
       // That clears 8 on any real piece, which is how a working director came
       // back to the owner as "could not respond".
       maxTurns: 24,
+      // Without this the longest silence in a turn is a single plan_batch call,
+      // where the director spends most of a minute composing six sections and
+      // the run has nothing to say until the whole thing arrives.
+      includePartialMessages: true,
     },
   })) {
     // The stream is the only account of what the director is doing between the
@@ -159,9 +241,42 @@ export async function runAgentTurnViaClaudeSdk(
     // the floor, which is why a turn that looks at nine photos and rewrites a
     // rejected plan showed the owner one spinner and no idea whether it was
     // stuck. Report each frame; callers that do not care pass nothing.
-    if (message.type === 'assistant') {
+    if (message.type === 'stream_event') {
+      const event = message.event
+      if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+        const name = String(event.content_block.name).replace('mcp__staging__', '')
+        if (name === 'plan_batch') {
+          // Announced here rather than from the finished message, so "writing
+          // the plan" lands before the sections it is made of rather than
+          // after them. Every other tool waits for its complete input, which
+          // is the only place the arguments worth naming actually arrive.
+          streamedPlanCalls.add(event.content_block.id)
+          plan = { index: event.index, json: '', section: null }
+          step({ kind: 'tool', name, input: {} })
+        }
+      } else if (
+        plan
+        && event.type === 'content_block_delta'
+        && event.index === plan.index
+        && event.delta.type === 'input_json_delta'
+      ) {
+        plan.json += event.delta.partial_json
+        const section = sectionInProgress(plan.json)
+        // Only on a boundary. A row per delta would be a row per few tokens,
+        // and the line would be rewritten faster than it could be read.
+        if (section && section !== plan.section) {
+          plan.section = section
+          step({ kind: 'writing', section })
+        }
+      } else if (plan && event.type === 'content_block_stop' && event.index === plan.index) {
+        plan = null
+      }
+    } else if (message.type === 'assistant') {
       for (const block of message.message.content) {
         if (block.type === 'tool_use') {
+          // Skipped only if the stream already announced it, so turning
+          // streaming off leaves every tool reported exactly once.
+          if (streamedPlanCalls.has(block.id)) continue
           step({ kind: 'tool', name: String(block.name).replace('mcp__staging__', ''), input: block.input })
         } else if (block.type === 'text' && block.text.trim()) {
           step({ kind: 'say', text: block.text.trim() })

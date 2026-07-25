@@ -39,6 +39,22 @@ describe('describeStep', () => {
     expect(describeStep(plan, 3)).toBe('the plan was rejected 3 times, writing it again')
   })
 
+  it('names the plan section being written', () => {
+    expect(describeStep({ kind: 'writing', section: 'product_lock' })).toBe(
+      'writing the product lock'
+    )
+    expect(describeStep({ kind: 'writing', section: 'subject_and_count' })).toBe(
+      'writing what is in frame'
+    )
+  })
+
+  it('stays quiet about the sections that are not thinking', () => {
+    // n and the photo ids are settled long before they are typed, so
+    // announcing them would narrate typing speed.
+    expect(describeStep({ kind: 'writing', section: 'n' })).toBeNull()
+    expect(describeStep({ kind: 'writing', section: 'reference_photo_ids' })).toBeNull()
+  })
+
   it('passes a phase through as written', () => {
     expect(describeStep({ kind: 'phase', text: 'generating 4 scenes' })).toBe('generating 4 scenes')
     expect(describeStep({ kind: 'phase', text: '   ' })).toBeNull()

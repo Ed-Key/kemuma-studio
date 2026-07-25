@@ -11,8 +11,25 @@ import { appendLog, countToolCalls } from '@/lib/catalog/jobs'
 export type JobStep =
   | { kind: 'tool'; name: string; input: unknown }
   | { kind: 'say'; text: string }
+  | { kind: 'writing'; section: string }
   | { kind: 'phase'; text: string }
   | { kind: 'done'; turns?: number }
+
+/**
+ * The plan's sections in the owner's words.
+ *
+ * Only the ones worth watching. size, n and reference_photo_ids are decided
+ * long before they are typed, so announcing them would be narrating the
+ * director's typing speed rather than its thinking.
+ */
+const PLAN_SECTIONS: Record<string, string> = {
+  scene: 'writing the scene',
+  lighting: 'writing the lighting',
+  subject_and_count: 'writing what is in frame',
+  composition: 'writing the composition',
+  product_lock: 'writing the product lock',
+  extra_exclusions: 'writing the exclusions',
+}
 
 function photoList(input: unknown): string | null {
   if (typeof input !== 'object' || input === null) return null
@@ -35,6 +52,8 @@ export function describeStep(step: JobStep, alreadyCalled = 0): string | null {
   switch (step.kind) {
     case 'phase':
       return step.text.trim() || null
+    case 'writing':
+      return PLAN_SECTIONS[step.section] ?? null
     case 'say':
       // Stored, deliberately not shown. The plan's rule is tool events first:
       // the director's prose is written for the chat, and a half-formed
