@@ -36,9 +36,16 @@ export default function PendingSubmit({
   const pending = dispatched || submitted
 
   if (pending) {
-    // Shed the button chrome so the orb pill stands on its own.
+    // Shed the button chrome so the orb pill stands on its own, but keep the
+    // footprint: a full-width button that shrinks while it works makes the card
+    // around it jump.
     return (
-      <button type="submit" className="btn-pending" disabled aria-busy="true">
+      <button
+        type="submit"
+        className={`btn-pending${block ? ' btn-pending--block' : ''}`}
+        disabled
+        aria-busy="true"
+      >
         <WorkingOrb label={pendingLabel} state={orbState} />
       </button>
     )

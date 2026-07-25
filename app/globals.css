@@ -1545,6 +1545,12 @@ input[type='radio'] {
   display: inline-flex;
 }
 
+.btn-pending--block,
+.btn-pending--block .orb-pill {
+  width: 100%;
+  justify-content: center;
+}
+
 .orb-canvas {
   display: block;
 }
