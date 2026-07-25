@@ -32,6 +32,13 @@ export function latestDraftForDesign(db: Db, designId: number): ListingDraftReco
   return row ?? null
 }
 
+export function getDraft(db: Db, draftId: number): ListingDraftRecord | null {
+  const row = db.prepare('SELECT * FROM drafts WHERE draft_id = ?').get(draftId) as
+    | ListingDraftRecord
+    | undefined
+  return row ?? null
+}
+
 export function approveDraft(db: Db, input: { draft_id: number; final_json: string; edited_fields: string[] }): void {
   db.prepare("UPDATE drafts SET status = 'approved', final_json = ? WHERE draft_id = ?").run(
     input.final_json,

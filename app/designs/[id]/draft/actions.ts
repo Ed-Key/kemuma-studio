@@ -1,8 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getDesignDetail } from '@/lib/catalog/catalog'
 import { getCatalogDb } from '@/lib/catalog/instance'
-import { approveDraft, latestDraftForDesign } from '@/lib/catalog/drafts'
+import { create as createJob } from '@/lib/catalog/jobs'
+import { approveDraft, getDraft, latestDraftForDesign } from '@/lib/catalog/drafts'
+import { startJob } from '@/lib/jobs/schedule'
 import { generateDraft } from '@/lib/writer/generate'
 import { defaultWriter } from '@/lib/writer/providers'
 import { ListingDraftSchema, validateEtsyRules } from '@/lib/writer/schema'
@@ -15,9 +18,32 @@ function errText(err: unknown): string {
 export async function generateDraftAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const designId = Number(formData.get('design_id'))
-    await generateDraft(getCatalogDb(), defaultWriter(), designId)
-    revalidatePath(`/designs/${designId}/draft`)
-    return { ok: true, message: 'Listing copy written.' }
+    if (!Number.isInteger(designId) || designId < 1) throw new Error('invalid design')
+    const db = getCatalogDb()
+    const detail = getDesignDetail(db, designId)
+    if (!detail) throw new Error(`design ${designId} not found`)
+    const destination = `/designs/${designId}/draft`
+    const jobId = createJob(db, {
+      kind: 'listing_copy',
+      design_id: designId,
+      title: `Listing copy · ${detail.name}`,
+      destination,
+    })
+    startJob(db, jobId, async () => {
+      const draftId = await generateDraft(db, defaultWriter(), designId)
+      const record = getDraft(db, draftId)
+      const usage = record?.usage_json
+        ? JSON.parse(record.usage_json) as { input_tokens: number; output_tokens: number }
+        : undefined
+      revalidatePath(destination)
+      return {
+        model: record?.model ?? null,
+        input_tokens: usage?.input_tokens ?? null,
+        output_tokens: usage?.output_tokens ?? null,
+        cost_usd: record?.cost_usd ?? null,
+      }
+    })
+    return { ok: true, message: 'Listing copy started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not write the listing.', detail: errText(err) }
   }

@@ -2,14 +2,33 @@
 
 import { revalidatePath } from 'next/cache'
 import { getCatalogDb, dataDir } from '@/lib/catalog/instance'
-import { approveStagedImage, rejectStagedImage, DESTINATIONS, type Destination } from '@/lib/catalog/staged'
+import { getDesignDetail } from '@/lib/catalog/catalog'
+import { create as createJob } from '@/lib/catalog/jobs'
+import {
+  approveStagedImage,
+  getStagedImage,
+  rejectStagedImage,
+  DESTINATIONS,
+  type Destination,
+} from '@/lib/catalog/staged'
+import { startJob } from '@/lib/jobs/schedule'
+import { agentModel } from '@/lib/staging/agent'
 import { defaultArtDirector } from '@/lib/staging/direct-openai'
 import { defaultImageGenerator } from '@/lib/staging/images-codex'
+import { getScene } from '@/lib/staging/scenes'
 import { runStaging } from '@/lib/staging/stage'
+import { computeCostUsd } from '@/lib/writer/prices'
 import type { ActionResult } from '../../../components/action-result'
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
+}
+
+function designForJob(designId: number) {
+  if (!Number.isInteger(designId) || designId < 1) throw new Error('invalid design')
+  const detail = getDesignDetail(getCatalogDb(), designId)
+  if (!detail) throw new Error(`design ${designId} not found`)
+  return detail
 }
 
 export async function stageDesignAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
@@ -18,19 +37,53 @@ export async function stageDesignAction(_prev: ActionResult | null, formData: Fo
     const sceneKey = String(formData.get('scene_key') ?? 'auto')
     const photoRaw = String(formData.get('source_photo_id') ?? '')
     const variance = formData.get('variance') === 'on'
-    const ids = await runStaging(
-      getCatalogDb(),
-      { artDirector: defaultArtDirector(), imageGenerator: defaultImageGenerator() },
-      {
-        designId,
-        dataDir: dataDir(),
-        sceneKey: sceneKey === 'auto' ? undefined : sceneKey,
-        sourcePhotoId: photoRaw ? Number(photoRaw) : undefined,
-        variance,
+    const sourcePhotoId = photoRaw ? Number(photoRaw) : undefined
+    if (sourcePhotoId !== undefined && (!Number.isInteger(sourcePhotoId) || sourcePhotoId < 1)) {
+      throw new Error('invalid source photo')
+    }
+    const detail = designForJob(designId)
+    if (sceneKey !== 'auto') getScene(sceneKey)
+    if (
+      sourcePhotoId !== undefined
+      && !detail.pieces.some((piece) =>
+        piece.photos.some((photo) => photo.photo_id === sourcePhotoId)
+      )
+    ) {
+      throw new Error(`photo ${sourcePhotoId} is not a photo of design ${designId}`)
+    }
+    const db = getCatalogDb()
+    const destination = `/designs/${designId}/staging`
+    const jobId = createJob(db, {
+      kind: 'staging_batch',
+      design_id: designId,
+      title: `Staging · ${detail.name}`,
+      destination,
+    })
+    startJob(db, jobId, async () => {
+      const artDirector = defaultArtDirector()
+      const imageGenerator = defaultImageGenerator()
+      const ids = await runStaging(
+        db,
+        { artDirector, imageGenerator },
+        {
+          designId,
+          dataDir: dataDir(),
+          sceneKey: sceneKey === 'auto' ? undefined : sceneKey,
+          sourcePhotoId,
+          variance,
+        }
+      )
+      const cost = ids.reduce(
+        (sum, id) => sum + (getStagedImage(db, id)?.cost_usd ?? 0),
+        0
+      )
+      revalidatePath(destination)
+      return {
+        model: `${artDirector.label} + ${imageGenerator.label}`,
+        cost_usd: cost,
       }
-    )
-    revalidatePath(`/designs/${designId}/staging`)
-    return { ok: true, message: `Staged ${ids.length} candidate scenes.` }
+    })
+    return { ok: true, message: 'Staging started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not stage the design.', detail: errText(err) }
   }
@@ -191,20 +244,44 @@ export async function chatTurnAction(_prev: ActionResult | null, formData: FormD
     const designId = Number(formData.get('design_id'))
     const message = String(formData.get('message') ?? '').trim()
     if (!message) throw new Error('write a message first')
+    const detail = designForJob(designId)
     const { getOrCreateChatForDesign } = await import('@/lib/catalog/chats')
     const db = getCatalogDb()
     const chat = getOrCreateChatForDesign(db, designId)
     const input = { designId, chatId: chat.chat_id, userText: message }
-    if ((process.env.STAGING_AGENT_MODEL ?? '').startsWith('claude-sub:')) {
-      const { runAgentTurnViaClaudeSdk } = await import('@/lib/staging/agent-claude-sdk')
-      await runAgentTurnViaClaudeSdk(db, input)
-    } else {
+    const destination = `/designs/${designId}/staging`
+    const jobId = createJob(db, {
+      kind: 'director_turn',
+      design_id: designId,
+      title: `Director · ${detail.name}`,
+      destination,
+    })
+    startJob(db, jobId, async () => {
+      const spec = process.env.STAGING_AGENT_MODEL ?? ''
+      if (spec.startsWith('claude-sub:')) {
+        const { runAgentTurnViaClaudeSdk } = await import('@/lib/staging/agent-claude-sdk')
+        const result = await runAgentTurnViaClaudeSdk(db, input)
+        const model = `claude-sub:${spec.slice('claude-sub:'.length) || 'default'}`
+        revalidatePath(destination)
+        return {
+          ...result,
+          model,
+          cost_usd: computeCostUsd(model, result.input_tokens, result.output_tokens),
+        }
+      }
+
       const { runAgentTurn } = await import('@/lib/staging/agent')
       const { defaultAgentClient } = await import('@/lib/staging/agent-openai')
-      await runAgentTurn(db, defaultAgentClient(), input)
-    }
-    revalidatePath(`/designs/${designId}/staging`)
-    return { ok: true, message: 'Reply below.' }
+      const result = await runAgentTurn(db, defaultAgentClient(), input)
+      const model = agentModel()
+      revalidatePath(destination)
+      return {
+        ...result,
+        model,
+        cost_usd: computeCostUsd(model, result.input_tokens, result.output_tokens),
+      }
+    })
+    return { ok: true, message: 'The staging director is working in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'The staging director could not respond.', detail: errText(err) }
   }
@@ -217,17 +294,33 @@ export async function executePlanAction(_prev: ActionResult | null, formData: Fo
     const { StagingPlanSchema } = await import('@/lib/staging/plan')
     const { runPlannedBatch } = await import('@/lib/staging/stage')
     const db = getCatalogDb()
+    const detail = designForJob(designId)
     const chat = getChatForDesign(db, designId)
     if (!chat?.pending_plan_json) throw new Error('no pending plan; ask the staging director first')
     const plan = StagingPlanSchema.parse(JSON.parse(chat.pending_plan_json))
-    const ids = await runPlannedBatch(
-      db,
-      { imageGenerator: defaultImageGenerator() },
-      { designId, dataDir: dataDir(), plan }
-    )
-    setPendingPlan(db, chat.chat_id, null)
-    revalidatePath(`/designs/${designId}/staging`)
-    return { ok: true, message: `Staged ${ids.length} candidates from the chat plan.` }
+    const destination = `/designs/${designId}/staging`
+    const jobId = createJob(db, {
+      kind: 'planned_batch',
+      design_id: designId,
+      title: `Planned batch · ${detail.name}`,
+      destination,
+    })
+    startJob(db, jobId, async () => {
+      const imageGenerator = defaultImageGenerator()
+      const ids = await runPlannedBatch(
+        db,
+        { imageGenerator },
+        { designId, dataDir: dataDir(), plan }
+      )
+      const cost = ids.reduce(
+        (sum, id) => sum + (getStagedImage(db, id)?.cost_usd ?? 0),
+        0
+      )
+      setPendingPlan(db, chat.chat_id, null)
+      revalidatePath(destination)
+      return { model: imageGenerator.label, cost_usd: cost }
+    })
+    return { ok: true, message: 'The planned batch started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not run the chat plan.', detail: errText(err) }
   }
