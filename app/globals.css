@@ -1833,3 +1833,14 @@ input[type='radio'] {
   gap: 8px;
   min-width: 0;
 }
+
+/* The job's own account of what it is doing, in the third text colour so it
+   sits under the title rather than competing with it. Wraps rather than
+   truncating: "the direction broke the prompt rules, asking again" is the
+   whole point of the line, and half of it says nothing. */
+.rail-job-narration {
+  margin-top: 3px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.3;
+}

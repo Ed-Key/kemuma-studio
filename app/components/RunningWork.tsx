@@ -13,6 +13,7 @@ type RunningJob = {
   status: string
   created_at: string
   started_at: string | null
+  narration: string | null
 }
 
 function elapsed(job: RunningJob, now: number): string {
@@ -103,10 +104,17 @@ export default function RunningWork({
   // No wrapper: the launcher's own .action-row already lays out a wrapping row
   // of controls, and .orb-pill is the working treatment used everywhere else,
   // so a pill here looks like the one the button shows for its own half second.
+  // The job's own account of itself when it has one, the verb when it does not.
+  // A batch that has not reached its first real boundary yet has nothing true
+  // to say, and "starting" would be filler dressed as information.
   return (
     <>
       {jobs.map((job) => (
-        <WorkingOrb key={job.job_id} label={`${label} · ${elapsed(job, now)}`} state={orbState} />
+        <WorkingOrb
+          key={job.job_id}
+          label={`${job.narration ?? label} · ${elapsed(job, now)}`}
+          state={orbState}
+        />
       ))}
     </>
   )

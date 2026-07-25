@@ -21,6 +21,8 @@ type RailJob = {
   created_at: string
   started_at: string | null
   finished_at: string | null
+  /** What the job last said it was doing, for running jobs only. */
+  narration: string | null
 }
 
 function isTerminal(status: RailJob['status']): boolean {
@@ -264,6 +266,9 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
                     {job.status}
                   </span>
                 </div>
+                {/* Only ever present while the job runs, so it disappears with
+                    the work rather than becoming a stale claim about it. */}
+                {job.narration && <p className="rail-job-narration">{job.narration}</p>}
               </Link>
             ))}
           </section>
