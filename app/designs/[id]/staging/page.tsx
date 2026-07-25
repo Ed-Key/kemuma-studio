@@ -9,6 +9,7 @@ import ActionForm from '../../../components/ActionForm'
 import DesignHeader from '../../../components/DesignHeader'
 import JobArrival from '../../../components/JobArrival'
 import PendingSubmit from '../../../components/PendingSubmit'
+import RunningWork from '../../../components/RunningWork'
 import {
   stageDesignAction,
   approveStagedAction,
@@ -123,6 +124,15 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
             <PendingSubmit pendingLabel="Staging four scenes..." orbState="composing" variant="primary">
               Stage four scenes
             </PendingSubmit>
+            {/* Beside the button, never in place of it. Starting a second batch
+                while the first runs is allowed on purpose, so this grows a pill
+                rather than taking the button away. */}
+            <RunningWork
+              kind="staging_batch"
+              designId={detail.design_id}
+              label="Staging four scenes"
+              orbState="composing"
+            />
           </div>
         </ActionForm>
       </div>
@@ -261,6 +271,12 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                 <PendingSubmit pendingLabel="Staging planned scene..." orbState="working" variant="primary">
                   Generate {pendingPlan.n}
                 </PendingSubmit>
+                <RunningWork
+                  kind="planned_batch"
+                  designId={detail.design_id}
+                  label="Staging the plan"
+                  orbState="working"
+                />
               </ActionForm>
               <ActionForm action={discardPlanAction} className="action-row">
                 <input type="hidden" name="design_id" value={detail.design_id} />
