@@ -6,6 +6,7 @@ import { vocabForFamily } from '@/lib/etsy/attribute-vocab'
 import { generateDraftAction, approveDraftAction, pushToEtsyAction } from './actions'
 import ActionForm from '../../../components/ActionForm'
 import DesignHeader from '../../../components/DesignHeader'
+import JobArrival from '../../../components/JobArrival'
 import PendingSubmit from '../../../components/PendingSubmit'
 import TitleField from '../../../components/TitleField'
 
@@ -47,6 +48,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
 
         <div className="stack">
           <DesignHeader detail={detail} current="draft" />
+          <JobArrival destination={`/designs/${detail.design_id}/draft`} />
 
           <div className="card">
             <div className="between">

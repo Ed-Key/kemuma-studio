@@ -261,9 +261,17 @@ input[type='radio'] {
 }
 
 .rail-job {
+  display: block;
   min-width: 0;
   padding: 10px 4px;
   border-bottom: 1px solid var(--border);
+  color: inherit;
+}
+
+.rail-job:hover,
+.rail-job:focus-visible {
+  background: var(--surface-2);
+  text-decoration: none;
 }
 
 .rail-job-title {
@@ -1034,6 +1042,27 @@ input[type='radio'] {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-2);
+}
+
+/* A job that ended badly, said on the page it was headed for. It borrows the
+   banner so trouble looks the same wherever it is reported, and adds only the
+   row: what went wrong on the left, the way to clear it on the right. */
+.job-arrival {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.job-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.job-notice-title {
+  font-family: var(--font-serif);
+  font-size: 15px;
 }
 
 /* ---- Simple card grid --------------------------------------------------- */

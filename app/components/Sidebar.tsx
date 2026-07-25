@@ -17,6 +17,7 @@ type RailJob = {
   job_id: number
   title: string
   status: 'queued' | 'running' | 'done' | 'failed' | 'interrupted'
+  destination: string
   created_at: string
   started_at: string | null
   finished_at: string | null
@@ -226,6 +227,13 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
           /* Newest first, so the thing just started is nearest the nav the eye
              already came from. Names wait for hover; nothing but marks here. */
           <section className="rail-marks" aria-label={`${jobs.length} jobs`}>
+            {/* Not links, though the plan asked for them to be. A pointer
+                cannot reach a collapsed mark: approaching it opens the rail,
+                which swaps this whole section for the rows below, so the mark
+                is gone before a click can land. Keyboard is worse, since focus
+                opens the rail too and the focused element unmounts under it. A
+                link that can never fire is an affordance that lies, so the
+                marks stay a summary and the rows carry the navigation. */}
             {jobs.map((job) => (
               <JobMark
                 key={job.job_id}
@@ -239,7 +247,7 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
         {!collapsed && jobs.length > 0 && (
           <section className="rail-jobs" aria-label="Jobs">
             {jobs.map((job) => (
-              <div className="rail-job" key={job.job_id}>
+              <Link className="rail-job" key={job.job_id} href={job.destination}>
                 <div className="rail-job-head">
                   <JobMark
                     status={job.status}
@@ -256,7 +264,7 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
                     {job.status}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </section>
         )}
