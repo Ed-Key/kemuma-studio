@@ -104,10 +104,16 @@ function stagingMcpServer(db: Db, input: { designId: number; chatId: number }) {
  * The staging director chat on the Claude Agent SDK. The SDK owns the tool
  * loop, while the app keeps ownership of catalog tools and visible chat state.
  */
+/** What the staging director is doing right now, frame by frame. */
+export type AgentStep =
+  | { kind: 'tool'; name: string; input: unknown }
+  | { kind: 'say'; text: string }
+  | { kind: 'done'; turns: number }
+
 export async function runAgentTurnViaClaudeSdk(
   db: Db,
   input: { designId: number; chatId: number; userText: string },
-  opts?: { model?: string; queryFn?: ClaudeSdkQueryFn }
+  opts?: { model?: string; queryFn?: ClaudeSdkQueryFn; onStep?: (step: AgentStep) => void }
 ): Promise<{ reply: string; input_tokens: number; output_tokens: number }> {
   const detail = getDesignDetail(db, input.designId)
   if (!detail) throw new Error(`design ${input.designId} not found`)
@@ -122,6 +128,8 @@ export async function runAgentTurnViaClaudeSdk(
   const allowedTools = AGENT_TOOLS.map((agentTool) => `mcp__staging__${agentTool.name}`)
   let result: SDKResultMessage | undefined
 
+  const step = opts?.onStep ?? (() => {})
+
   for await (const message of queryFn({
     prompt: agentPrompt(prior, input.userText),
     options: {
@@ -135,10 +143,34 @@ export async function runAgentTurnViaClaudeSdk(
       tools: [],
       allowedTools,
       mcpServers: { staging: stagingMcpServer(db, input) },
-      maxTurns: 8,
+      // Not the same 8 as runAgentTurn's MAX_TURNS, which this was copied from.
+      // There one iteration meant one model reply that could fire several tools
+      // at once; here a turn is a single round trip. The mandated process is
+      // view_design, view_photos (four ids at a time), review_history,
+      // save_staging_note, plan_batch, plus the reply, and the system prompt
+      // tells the director to call plan_batch again after validation errors.
+      // That clears 8 on any real piece, which is how a working director came
+      // back to the owner as "could not respond".
+      maxTurns: 24,
     },
   })) {
-    if (message.type === 'result') result = message
+    // The stream is the only account of what the director is doing between the
+    // click and the reply. Everything except the result used to be dropped on
+    // the floor, which is why a turn that looks at nine photos and rewrites a
+    // rejected plan showed the owner one spinner and no idea whether it was
+    // stuck. Report each frame; callers that do not care pass nothing.
+    if (message.type === 'assistant') {
+      for (const block of message.message.content) {
+        if (block.type === 'tool_use') {
+          step({ kind: 'tool', name: String(block.name).replace('mcp__staging__', ''), input: block.input })
+        } else if (block.type === 'text' && block.text.trim()) {
+          step({ kind: 'say', text: block.text.trim() })
+        }
+      }
+    } else if (message.type === 'result') {
+      result = message
+      step({ kind: 'done', turns: message.num_turns })
+    }
   }
 
   if (!result) throw new Error('Claude Agent SDK returned no result message')
