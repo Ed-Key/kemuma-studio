@@ -7,6 +7,8 @@
   --surface: #131315;
   --surface-2: #1a1a1d;
   --border: #26262a;
+  /* Hover/emphasis border. Was inlined as raw hex in four rules. */
+  --border-strong: #34343a;
   --text: #ededef;
   --text-2: #8a8a93;
   --accent: #c98a5e;
@@ -83,6 +85,33 @@ p {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 0;
+}
+
+/* Interaction semantics belong to the element and its state, not to each
+   component class. Declaring them once means a new control is correct the
+   moment it is written, instead of correct only if someone remembers to add
+   cursor and transition to its class. */
+button:not(:disabled),
+summary,
+label,
+select:not(:disabled),
+[role='button'],
+input[type='file']:not(:disabled),
+input[type='checkbox']:not(:disabled),
+input[type='radio']:not(:disabled),
+input[type='submit']:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+button:not(:disabled) {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 /* ---- App shell ---------------------------------------------------------- */
@@ -296,7 +325,6 @@ p {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease;
   display: inline-flex;
   align-items: center;
@@ -306,12 +334,11 @@ p {
 }
 
 .btn:hover {
-  border-color: #34343a;
+  border-color: var(--border-strong);
   background: var(--surface);
 }
 
 .btn:disabled {
-  cursor: default;
   opacity: 0.75;
 }
 
@@ -327,7 +354,7 @@ p {
 
 .btn--primary:hover {
   background: var(--surface);
-  border-color: #34343a;
+  border-color: var(--border-strong);
 }
 
 .btn--ghost {
@@ -424,7 +451,6 @@ p {
   padding: 28px 20px;
   text-align: center;
   color: var(--text);
-  cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease;
 }
 
@@ -443,7 +469,6 @@ p {
   width: 100%;
   height: 100%;
   opacity: 0;
-  cursor: pointer;
 }
 
 .drop-zone:has(.drop-input:focus-visible) {
@@ -469,7 +494,6 @@ p {
   width: 100%;
   height: 100%;
   opacity: 0;
-  cursor: pointer;
 }
 
 .file-trigger:has(.file-trigger-input:focus-visible) {
@@ -495,7 +519,6 @@ p {
 }
 .photo-choice {
   position: relative;
-  cursor: pointer;
   border: 1px solid var(--border);
   padding: 2px;
 }
@@ -588,7 +611,7 @@ p {
 }
 
 .design-card:hover {
-  border-color: #34343a;
+  border-color: var(--border-strong);
   text-decoration: none;
 }
 
@@ -649,7 +672,6 @@ p {
 }
 
 .ghost-card summary {
-  cursor: pointer;
   color: var(--text-2);
   list-style: none;
   display: flex;
@@ -820,12 +842,11 @@ p {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
-  cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .select-row:hover {
-  border-color: #34343a;
+  border-color: var(--border-strong);
   background: var(--surface-2);
 }
 
@@ -1014,7 +1035,6 @@ p {
   color: var(--warn);
   font-size: 12px;
   max-width: 420px;
-  cursor: pointer;
 }
 .ack-row input {
   margin-top: 2px;
