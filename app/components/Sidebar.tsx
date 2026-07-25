@@ -9,6 +9,17 @@ import { useCallback, useEffect, useRef, useState } from 'react'
    it shut mid-reach. */
 const IDLE_MS = 2600
 const GRACE_MS = 450
+const JOB_POLL_MS = 3000
+const ELAPSED_TICK_MS = 1000
+
+type RailJob = {
+  job_id: number
+  title: string
+  status: 'queued' | 'running' | 'done' | 'failed' | 'interrupted'
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+}
 
 const NAV = [
   {
@@ -51,9 +62,23 @@ const NAV = [
  *  timers so it has to be a client component and cannot query the db itself. */
 export type NavCounts = Record<string, number>
 
+function formatElapsed(job: RailJob, now: number): string {
+  const started = Date.parse(job.started_at ?? job.created_at)
+  const finished = job.finished_at ? Date.parse(job.finished_at) : now
+  const totalSeconds = Math.max(0, Math.floor((finished - started) / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    : `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
 export default function Sidebar({ counts }: { counts?: NavCounts }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [jobs, setJobs] = useState<RailJob[]>([])
+  const [now, setNow] = useState(() => Date.now())
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const arm = useCallback((ms: number) => {
@@ -72,6 +97,42 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
       if (timer.current) clearTimeout(timer.current)
     }
   }, [arm])
+
+  useEffect(() => {
+    let active = true
+    let request: AbortController | null = null
+
+    const poll = async () => {
+      request?.abort()
+      request = new AbortController()
+      try {
+        const response = await fetch('/api/jobs', {
+          cache: 'no-store',
+          signal: request.signal,
+        })
+        if (!response.ok) return
+        const body = await response.json() as { jobs: RailJob[] }
+        if (active) setJobs(body.jobs)
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('Could not read jobs', error)
+        }
+      }
+    }
+
+    void poll()
+    const pollTimer = setInterval(poll, JOB_POLL_MS)
+    return () => {
+      active = false
+      request?.abort()
+      clearInterval(pollTimer)
+    }
+  }, [])
+
+  useEffect(() => {
+    const elapsedTimer = setInterval(() => setNow(Date.now()), ELAPSED_TICK_MS)
+    return () => clearInterval(elapsedTimer)
+  }, [])
 
   return (
     <div className="rail">
@@ -123,6 +184,23 @@ export default function Sidebar({ counts }: { counts?: NavCounts }) {
             )
           })}
         </nav>
+        {!collapsed && jobs.length > 0 && (
+          <section className="rail-jobs" aria-label="Jobs">
+            {jobs.map((job) => (
+              <div className="rail-job" key={job.job_id}>
+                <div className="rail-job-title">{job.title}</div>
+                <div className="rail-job-meta">
+                  <time className="rail-job-elapsed">
+                    {formatElapsed(job, now)}
+                  </time>
+                  <span className={`rail-job-status rail-job-status--${job.status}`}>
+                    {job.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
       </aside>
     </div>
   )
