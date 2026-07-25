@@ -43,6 +43,18 @@ export interface StagedBatch {
   cost_usd: number
 }
 
+export interface StagedImageInput {
+  references: Buffer[]
+  prompt: string
+  size: StagingSize
+  n: number
+}
+
+export interface ImageGenerator {
+  label: string
+  generate(input: StagedImageInput): Promise<StagedBatch>
+}
+
 // NOTE: never send input_fidelity; gpt-image-2 rejects the parameter and
 // already processes references at high fidelity automatically. Multiple
 // references are different views of the SAME product; the prompt's
@@ -51,7 +63,7 @@ export interface StagedBatch {
 export async function generateStagedImages(
   fetchFn: typeof fetch,
   apiKey: string,
-  input: { references: Buffer[]; prompt: string; size: StagingSize; n: number }
+  input: StagedImageInput
 ): Promise<StagedBatch> {
   if (input.references.length === 0) throw new Error('staging needs at least one reference image')
   const form = new FormData()
@@ -76,5 +88,24 @@ export async function generateStagedImages(
     images: body.data.map((d) => Buffer.from(d.b64_json, 'base64')),
     usage: body.usage,
     cost_usd: computeImageCostUsd(body.usage),
+  }
+}
+
+/**
+ * The image generator on the OpenAI API. This keeps the original gpt-image-2
+ * request available when IMAGE_PROVIDER does not select a subscription path.
+ */
+export function createOpenAIImageGenerator(opts?: {
+  apiKey?: string
+  fetchFn?: typeof fetch
+}): ImageGenerator {
+  const fetchFn = opts?.fetchFn ?? fetch
+  return {
+    label: GPT_IMAGE_MODEL,
+    async generate(input) {
+      const apiKey = opts?.apiKey ?? process.env.OPENAI_API_KEY
+      if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
+      return generateStagedImages(fetchFn, apiKey, input)
+    },
   }
 }

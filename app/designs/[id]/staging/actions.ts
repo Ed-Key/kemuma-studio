@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getCatalogDb, dataDir } from '@/lib/catalog/instance'
 import { approveStagedImage, rejectStagedImage, DESTINATIONS, type Destination } from '@/lib/catalog/staged'
 import { defaultArtDirector } from '@/lib/staging/direct-openai'
+import { defaultImageGenerator } from '@/lib/staging/images-codex'
 import { runStaging } from '@/lib/staging/stage'
 import type { ActionResult } from '../../../components/action-result'
 
@@ -17,11 +18,9 @@ export async function stageDesignAction(_prev: ActionResult | null, formData: Fo
     const sceneKey = String(formData.get('scene_key') ?? 'auto')
     const photoRaw = String(formData.get('source_photo_id') ?? '')
     const variance = formData.get('variance') === 'on'
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
     const ids = await runStaging(
       getCatalogDb(),
-      { artDirector: defaultArtDirector(), fetchFn: fetch, apiKey },
+      { artDirector: defaultArtDirector(), imageGenerator: defaultImageGenerator() },
       {
         designId,
         dataDir: dataDir(),
@@ -193,11 +192,17 @@ export async function chatTurnAction(_prev: ActionResult | null, formData: FormD
     const message = String(formData.get('message') ?? '').trim()
     if (!message) throw new Error('write a message first')
     const { getOrCreateChatForDesign } = await import('@/lib/catalog/chats')
-    const { runAgentTurn, createAnthropicAgentClient } = await import('@/lib/staging/agent')
-    const chat = getOrCreateChatForDesign(getCatalogDb(), designId)
-    await runAgentTurn(getCatalogDb(), createAnthropicAgentClient(), {
-      designId, chatId: chat.chat_id, userText: message,
-    })
+    const db = getCatalogDb()
+    const chat = getOrCreateChatForDesign(db, designId)
+    const input = { designId, chatId: chat.chat_id, userText: message }
+    if ((process.env.STAGING_AGENT_MODEL ?? '').startsWith('claude-sub:')) {
+      const { runAgentTurnViaClaudeSdk } = await import('@/lib/staging/agent-claude-sdk')
+      await runAgentTurnViaClaudeSdk(db, input)
+    } else {
+      const { runAgentTurn } = await import('@/lib/staging/agent')
+      const { defaultAgentClient } = await import('@/lib/staging/agent-openai')
+      await runAgentTurn(db, defaultAgentClient(), input)
+    }
     revalidatePath(`/designs/${designId}/staging`)
     return { ok: true, message: 'Reply below.' }
   } catch (err) {
@@ -208,8 +213,6 @@ export async function chatTurnAction(_prev: ActionResult | null, formData: FormD
 export async function executePlanAction(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   try {
     const designId = Number(formData.get('design_id'))
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) throw new Error('OPENAI_API_KEY is not set')
     const { getChatForDesign, setPendingPlan } = await import('@/lib/catalog/chats')
     const { StagingPlanSchema } = await import('@/lib/staging/plan')
     const { runPlannedBatch } = await import('@/lib/staging/stage')
@@ -217,7 +220,11 @@ export async function executePlanAction(_prev: ActionResult | null, formData: Fo
     const chat = getChatForDesign(db, designId)
     if (!chat?.pending_plan_json) throw new Error('no pending plan; ask the staging director first')
     const plan = StagingPlanSchema.parse(JSON.parse(chat.pending_plan_json))
-    const ids = await runPlannedBatch(db, { fetchFn: fetch, apiKey }, { designId, dataDir: dataDir(), plan })
+    const ids = await runPlannedBatch(
+      db,
+      { imageGenerator: defaultImageGenerator() },
+      { designId, dataDir: dataDir(), plan }
+    )
     setPendingPlan(db, chat.chat_id, null)
     revalidatePath(`/designs/${designId}/staging`)
     return { ok: true, message: `Staged ${ids.length} candidates from the chat plan.` }

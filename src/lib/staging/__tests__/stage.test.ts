@@ -11,6 +11,7 @@ import { runStaging, runPlannedBatch } from '@/lib/staging/stage'
 import type { ArtDirector } from '@/lib/staging/direct'
 import type { ArtDirection } from '@/lib/staging/prompt'
 import type { StagingPlan } from '@/lib/staging/plan'
+import type { ImageGenerator } from '@/lib/staging/images-api'
 
 const goodDirection: ArtDirection = {
   subject_and_count:
@@ -77,6 +78,24 @@ async function fakeImagesFetch(counter?: { calls: number; ns: number[] }): Promi
       { status: 200 }
     )
   }) as typeof fetch
+}
+
+async function fakeImageGenerator(label = 'codex:image_generation'): Promise<ImageGenerator> {
+  const png = await sharp({
+    create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 10, b: 10 } },
+  })
+    .png()
+    .toBuffer()
+  return {
+    label,
+    async generate(input) {
+      return {
+        images: Array.from({ length: input.n }, () => png),
+        usage: { input_tokens: 0, output_tokens: 0 },
+        cost_usd: 0,
+      }
+    },
+  }
 }
 
 describe('runStaging', () => {
@@ -214,6 +233,22 @@ describe('runStaging', () => {
     expect(counter.calls).toBe(1)
     expect(counter.ns).toEqual([4])
     expect(director.variedCalls).toBe(0)
+  })
+
+  it('uses an injected image provider and records its label', async () => {
+    const ids = await runStaging(
+      db,
+      {
+        artDirector: fakeDirector([goodDirection]),
+        imageGenerator: await fakeImageGenerator(),
+      },
+      { designId, dataDir, sceneKey: 'coffee-table' }
+    )
+
+    expect(ids).toHaveLength(4)
+    for (const row of listStagedForDesign(db, designId)) {
+      expect(row.model).toBe('codex:image_generation')
+    }
   })
 
   const chatPlan = (photoId: number): StagingPlan => ({

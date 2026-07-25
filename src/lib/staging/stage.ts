@@ -9,15 +9,26 @@ import { computeCostUsd } from '@/lib/writer/prices'
 import { getScene, pickScene } from './scenes'
 import { assembleStagingPrompt, validateStagingPrompt } from './prompt'
 import { buildDirectorUserText, buildVarianceDirectorUserText, type ArtDirector } from './direct'
-import { generateStagedImages, prepareReference, GPT_IMAGE_MODEL } from './images-api'
+import { createOpenAIImageGenerator, prepareReference, type ImageGenerator } from './images-api'
 import { assemblePlanPrompt, validatePlan, type StagingPlan } from './plan'
+
+type ImageGeneratorDeps =
+  | { imageGenerator: ImageGenerator }
+  | { fetchFn: typeof fetch; apiKey: string }
+
+function imageGeneratorFrom(deps: ImageGeneratorDeps): ImageGenerator {
+  return 'imageGenerator' in deps
+    ? deps.imageGenerator
+    : createOpenAIImageGenerator({ fetchFn: deps.fetchFn, apiKey: deps.apiKey })
+}
 
 export async function runStaging(
   db: Db,
-  deps: { artDirector: ArtDirector; fetchFn: typeof fetch; apiKey: string },
+  deps: { artDirector: ArtDirector } & ImageGeneratorDeps,
   input: { designId: number; dataDir: string; sceneKey?: string; sourcePhotoId?: number; n?: number; variance?: boolean }
 ): Promise<number[]> {
   const n = input.n ?? 4
+  const imageGenerator = imageGeneratorFrom(deps)
   const detail = getDesignDetail(db, input.designId)
   if (!detail) throw new Error(`design ${input.designId} not found`)
 
@@ -66,7 +77,7 @@ export async function runStaging(
           source_photo_id: photoId!,
           prompt: prompts[i],
           file_path: filePath,
-          model: GPT_IMAGE_MODEL,
+          model: imageGenerator.label,
           cost_usd: costPerImage,
         })
       )
@@ -121,7 +132,7 @@ export async function runStaging(
 
     const batches = await Promise.all(
       prompts.map((p) =>
-        generateStagedImages(deps.fetchFn, deps.apiKey, { references, prompt: p, size: scene.size, n: 1 })
+        imageGenerator.generate({ references, prompt: p, size: scene.size, n: 1 })
       )
     )
     const directorCost = computeCostUsd(deps.artDirector.label, directorIn, directorOut) ?? 0
@@ -155,7 +166,7 @@ export async function runStaging(
   }
 
   const reference = await prepareReference(photoPath, scene.size)
-  const batch = await generateStagedImages(deps.fetchFn, deps.apiKey, { references: [reference], prompt, size: scene.size, n })
+  const batch = await imageGenerator.generate({ references: [reference], prompt, size: scene.size, n })
 
   const directorCost = computeCostUsd(deps.artDirector.label, directorIn, directorOut) ?? 0
   const costPerImage = (batch.cost_usd + directorCost) / batch.images.length
@@ -168,9 +179,10 @@ export async function runStaging(
 
 export async function runPlannedBatch(
   db: Db,
-  deps: { fetchFn: typeof fetch; apiKey: string },
+  deps: ImageGeneratorDeps,
   input: { designId: number; dataDir: string; plan: StagingPlan }
 ): Promise<number[]> {
+  const imageGenerator = imageGeneratorFrom(deps)
   const errors = validatePlan(db, input.designId, input.plan)
   if (errors.length > 0) throw new Error(`plan failed validation: ${errors.join('; ')}`)
 
@@ -181,7 +193,7 @@ export async function runPlannedBatch(
   const references = await Promise.all(photoPaths.map((p) => prepareReference(p, input.plan.size)))
   const prompt = assemblePlanPrompt(input.plan)
 
-  const batch = await generateStagedImages(deps.fetchFn, deps.apiKey, {
+  const batch = await imageGenerator.generate({
     references,
     prompt,
     size: input.plan.size,
@@ -203,7 +215,7 @@ export async function runPlannedBatch(
         source_photo_id: input.plan.reference_photo_ids[0],
         prompt,
         file_path: filePath,
-        model: GPT_IMAGE_MODEL,
+        model: imageGenerator.label,
         cost_usd: costPerImage,
       })
     )
