@@ -226,10 +226,20 @@ the log_type is what marks a row as written for the owner: `tool_use` rows
 are phrased for them and are what the rail reads, while the agent's own
 prose is stored as `text` for replay and never shown.
 
-Still open: streaming. The agent call is not streamed, so the long compose
-gap inside a single `plan_batch` is still silent. Streaming the partial
-JSON would let it read "writing the product lock" rather than nothing, and
-that is the remaining half of this stage.
+Streaming shipped too, so the compose gap inside a single `plan_batch` now
+names the section being written. Two things it taught. The call has to be
+announced from the stream rather than from the finished message, or
+"writing the plan" arrives after the sections it is made of. And reading
+the partial JSON by searching for the field names is not enough: a real
+turn wrote the phrase product_lock inside one of its exclusions and the
+line walked backwards, so the reader parses instead, counting a name only
+at the top level and outside any string.
+
+What the narration then made visible, which is the point of having it:
+`plan_batch` is routinely rejected four and five times in a row on the
+coaster set. That was always happening and simply could not be seen. It is
+a validator or system-prompt problem, not a rail problem, and it wants its
+own look.
 
 ## What we studied and chose not to copy
 
