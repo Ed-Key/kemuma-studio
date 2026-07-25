@@ -42,9 +42,19 @@ persisted to SQLite anyway; now the fact of the job is too.
 - The rail is the home for job visibility. Collapsed at 50px it shows only
   the marks (variant B below); identity waits for hover.
 - The mark is the imported `ThinkingOrb`, the same component `WorkingOrb`
-  wraps. Running is the orb animating; done is the orb with `paused`.
-  Trouble changes shape, not just motion: failed is a solid square in the
-  danger color, interrupted is a hollow square in the warn color.
+  wraps, in its `listening` state. That state is the one that survives the
+  size: it holds a circle out of latitude rings, where the `working` state
+  the orb defaults to is particles on tilted orbits and breaks into loose
+  specks below about 30px.
+- Every job is the same orb. Running animates in the neutral ink; every
+  finished state is the same orb held still and tinted, green for done,
+  the danger red for failed, the warn amber for interrupted. An earlier
+  draft gave trouble its own silhouette (a solid square for failed, a
+  hollow one for interrupted) on the argument that shape separates before
+  colour at this size. Seen in place, the squares read as a different kind
+  of object sitting in a column of orbs, so shape now means "this is a job"
+  and colour carries the outcome. The cost is honest: under reduced motion
+  running and done differ only by the tint.
 - Motion only ever means running. Orb states change only on real job
   events, never on timers.
 - A finished success never expires on its own. It sits until its page is
@@ -156,8 +166,11 @@ a pending reply row.
 ### Stage two: presence (variant B)
 
 The collapsed 50px column gets the marks: a 22px hairline below the nav
-glyphs, then the stack, newest first. Orbs at 15px, the failed square at
-13px. Nothing but marks at 50px; hover opens the rail as it already does
+glyphs, then the stack, newest first. The orb ships two designs rather than
+one drawing at any size, 20 and 64, so the mark is the 20 preset drawn 1.35
+times larger than its layout box: it reads at about 27px while the stack
+rhythm and the width of the collapsed column stay put. 15px was tried first
+and the dots fell apart. Nothing but marks at 50px; hover opens the rail as it already does
 and the marks gain names. Reduced motion inherits `WorkingOrb`'s dot
 fallback. Mock reference: the round-one artifact at
 an internal mock,
