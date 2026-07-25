@@ -9,9 +9,11 @@ import {
   create,
   get,
   listOpen,
+  listOpenForDestination,
   markDone,
   markFailed,
   markRunning,
+  markSeen,
 } from '@/lib/catalog/jobs'
 
 function tempDbPath(): string {
@@ -104,6 +106,64 @@ describe('jobs', () => {
     db.prepare('UPDATE jobs SET seen_at = ? WHERE job_id = ?').run('2026-07-25T12:02:00.000Z', seen)
 
     expect(listOpen(db).map((job) => job.job_id)).toEqual([unseen])
+  })
+
+  it('lists only the unseen finished jobs that landed on one page', () => {
+    const here = create(db, {
+      kind: 'staging_batch',
+      design_id: designId,
+      title: 'Staging · Leaping Gazelle',
+      destination: `/designs/${designId}/staging`,
+    }, new Date('2026-07-25T12:00:00.000Z'))
+    const elsewhere = create(db, {
+      kind: 'listing_copy',
+      design_id: designId,
+      title: 'Listing copy · Leaping Gazelle',
+      destination: `/designs/${designId}/draft`,
+    }, new Date('2026-07-25T12:00:01.000Z'))
+    const stillRunning = create(db, {
+      kind: 'planned_batch',
+      design_id: designId,
+      title: 'Planned batch · Leaping Gazelle',
+      destination: `/designs/${designId}/staging`,
+    }, new Date('2026-07-25T12:00:02.000Z'))
+    markDone(db, here, undefined, new Date('2026-07-25T12:01:00.000Z'))
+    markDone(db, elsewhere, undefined, new Date('2026-07-25T12:01:00.000Z'))
+    markRunning(db, stillRunning, new Date('2026-07-25T12:01:00.000Z'))
+
+    const open = listOpenForDestination(db, `/designs/${designId}/staging`)
+    expect(open.map((job) => job.job_id)).toEqual([here])
+  })
+
+  it('acknowledges a finished job once and keeps the first arrival', () => {
+    const jobId = create(db, {
+      kind: 'staging_batch',
+      design_id: designId,
+      title: 'Staging · Leaping Gazelle',
+      destination: `/designs/${designId}/staging`,
+    }, new Date('2026-07-25T12:00:00.000Z'))
+    markDone(db, jobId, undefined, new Date('2026-07-25T12:01:00.000Z'))
+
+    markSeen(db, jobId, new Date('2026-07-25T12:02:00.000Z'))
+    markSeen(db, jobId, new Date('2026-07-25T12:09:00.000Z'))
+
+    expect(get(db, jobId)?.seen_at).toBe('2026-07-25T12:02:00.000Z')
+    expect(listOpen(db)).toHaveLength(0)
+  })
+
+  it('refuses to acknowledge a job that is still running', () => {
+    const jobId = create(db, {
+      kind: 'director_turn',
+      design_id: designId,
+      title: 'Director · Leaping Gazelle',
+      destination: `/designs/${designId}/staging`,
+    }, new Date('2026-07-25T12:00:00.000Z'))
+    markRunning(db, jobId, new Date('2026-07-25T12:00:01.000Z'))
+
+    markSeen(db, jobId, new Date('2026-07-25T12:00:02.000Z'))
+
+    expect(get(db, jobId)?.seen_at).toBeNull()
+    expect(listOpen(db).map((job) => job.job_id)).toEqual([jobId])
   })
 
   it('truncates appended log content to 2000 characters', () => {

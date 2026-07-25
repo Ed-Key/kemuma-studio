@@ -148,6 +148,36 @@ export function listOpen(db: Db): JobRecord[] {
     .all() as JobRecord[]
 }
 
+/** Everything still open that landed on one page, oldest first. */
+export function listOpenForDestination(db: Db, destination: string): JobRecord[] {
+  return db
+    .prepare(`
+      SELECT * FROM jobs
+      WHERE destination = ?
+        AND seen_at IS NULL
+        AND status IN ('done', 'failed', 'interrupted')
+      ORDER BY created_at ASC, job_id ASC
+    `)
+    .all(destination) as JobRecord[]
+}
+
+/**
+ * Acknowledge a finished job, which is what takes it out of the rail.
+ *
+ * Only a finished job can be acknowledged: a running one has nothing to have
+ * been seen yet, and stamping it would make the rail forget work still in
+ * flight. The `seen_at IS NULL` guard keeps the first arrival the honest one,
+ * so a page the owner returns to later does not rewrite when they found out.
+ */
+export function markSeen(db: Db, jobId: number, now = new Date()): void {
+  db.prepare(`
+    UPDATE jobs SET seen_at = ?
+    WHERE job_id = ?
+      AND seen_at IS NULL
+      AND status IN ('done', 'failed', 'interrupted')
+  `).run(timestamp(now), jobId)
+}
+
 export function get(db: Db, jobId: number): JobRecord | null {
   const row = db.prepare('SELECT * FROM jobs WHERE job_id = ?').get(jobId) as
     | JobRecord
