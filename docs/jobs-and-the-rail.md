@@ -272,11 +272,9 @@ for it, which is the point of writing these columns down now.
 
 ## Working conventions for the build
 
-- This repo is not yet on GitHub. No branches, no PRs: commit plainly to
-  main with conventional commits, and put the judgment calls in commit
-  bodies. The owner will push the repo publicly once the foundation
-  (including this work) is in and tested; the history should read well
-  when that happens.
+- Branch, commit and PR conventions live in `CONTRIBUTING.md`. Work
+  branches off `dev`, commits are conventional with the judgment calls in
+  their bodies, and every change arrives as a PR into `dev`.
 - Each stage begins with a short walkthrough, before any code: what the
   the reference runner counterpart does (file references on both sides), then what
   changes in our port and why. The owner wants the reference architecture
