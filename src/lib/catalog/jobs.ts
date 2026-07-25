@@ -36,6 +36,9 @@ export interface JobRecord {
   started_at: string | null
   finished_at: string | null
   heartbeat_at: string | null
+  /** The call that started the run, as JSON. Null for rows written before
+   *  jobs recorded their inputs, which is what makes them unretryable. */
+  input_json: string | null
 }
 
 export interface JobUsage {
@@ -56,20 +59,23 @@ export function create(
     design_id?: number | null
     title: string
     destination: string
+    /** The arguments the executor was handed, so the run can be repeated. */
+    input?: unknown
   },
   now = new Date()
 ): number {
   const result = db
     .prepare(`
-      INSERT INTO jobs (kind, design_id, title, status, destination, created_at)
-      VALUES (?, ?, ?, 'queued', ?, ?)
+      INSERT INTO jobs (kind, design_id, title, status, destination, created_at, input_json)
+      VALUES (?, ?, ?, 'queued', ?, ?, ?)
     `)
     .run(
       input.kind,
       input.design_id ?? null,
       input.title,
       input.destination,
-      timestamp(now)
+      timestamp(now),
+      input.input === undefined ? null : JSON.stringify(input.input)
     )
   return Number(result.lastInsertRowid)
 }

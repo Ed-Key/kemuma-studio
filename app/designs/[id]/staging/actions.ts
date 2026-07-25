@@ -11,12 +11,9 @@ import {
   DESTINATIONS,
   type Destination,
 } from '@/lib/catalog/staged'
+import { runJobOperation, type JobInput } from '@/lib/jobs/operations'
 import { startJob } from '@/lib/jobs/schedule'
-import { agentModel } from '@/lib/staging/agent'
-import { defaultArtDirector } from '@/lib/staging/direct-openai'
-import { defaultImageGenerator } from '@/lib/staging/images-codex'
 import { getScene } from '@/lib/staging/scenes'
-import { runStaging } from '@/lib/staging/stage'
 import { computeCostUsd } from '@/lib/writer/prices'
 import type { ActionResult } from '../../../components/action-result'
 
@@ -53,36 +50,21 @@ export async function stageDesignAction(_prev: ActionResult | null, formData: Fo
     }
     const db = getCatalogDb()
     const destination = `/designs/${designId}/staging`
+    const input: JobInput = {
+      kind: 'staging_batch',
+      designId,
+      sceneKey: sceneKey === 'auto' ? undefined : sceneKey,
+      sourcePhotoId,
+      variance,
+    }
     const jobId = createJob(db, {
       kind: 'staging_batch',
       design_id: designId,
       title: `Staging · ${detail.name}`,
       destination,
+      input,
     })
-    startJob(db, jobId, async () => {
-      const artDirector = defaultArtDirector()
-      const imageGenerator = defaultImageGenerator()
-      const ids = await runStaging(
-        db,
-        { artDirector, imageGenerator },
-        {
-          designId,
-          dataDir: dataDir(),
-          sceneKey: sceneKey === 'auto' ? undefined : sceneKey,
-          sourcePhotoId,
-          variance,
-        }
-      )
-      const cost = ids.reduce(
-        (sum, id) => sum + (getStagedImage(db, id)?.cost_usd ?? 0),
-        0
-      )
-      revalidatePath(destination)
-      return {
-        model: `${artDirector.label} + ${imageGenerator.label}`,
-        cost_usd: cost,
-      }
-    })
+    startJob(db, jobId, () => runJobOperation(db, input))
     return { ok: true, message: 'Staging started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not stage the design.', detail: errText(err) }
@@ -248,39 +230,21 @@ export async function chatTurnAction(_prev: ActionResult | null, formData: FormD
     const { getOrCreateChatForDesign } = await import('@/lib/catalog/chats')
     const db = getCatalogDb()
     const chat = getOrCreateChatForDesign(db, designId)
-    const input = { designId, chatId: chat.chat_id, userText: message }
+    const input: JobInput = {
+      kind: 'director_turn',
+      designId,
+      chatId: chat.chat_id,
+      userText: message,
+    }
     const destination = `/designs/${designId}/staging`
     const jobId = createJob(db, {
       kind: 'director_turn',
       design_id: designId,
       title: `Director · ${detail.name}`,
       destination,
+      input,
     })
-    startJob(db, jobId, async () => {
-      const spec = process.env.STAGING_AGENT_MODEL ?? ''
-      if (spec.startsWith('claude-sub:')) {
-        const { runAgentTurnViaClaudeSdk } = await import('@/lib/staging/agent-claude-sdk')
-        const result = await runAgentTurnViaClaudeSdk(db, input)
-        const model = `claude-sub:${spec.slice('claude-sub:'.length) || 'default'}`
-        revalidatePath(destination)
-        return {
-          ...result,
-          model,
-          cost_usd: computeCostUsd(model, result.input_tokens, result.output_tokens),
-        }
-      }
-
-      const { runAgentTurn } = await import('@/lib/staging/agent')
-      const { defaultAgentClient } = await import('@/lib/staging/agent-openai')
-      const result = await runAgentTurn(db, defaultAgentClient(), input)
-      const model = agentModel()
-      revalidatePath(destination)
-      return {
-        ...result,
-        model,
-        cost_usd: computeCostUsd(model, result.input_tokens, result.output_tokens),
-      }
-    })
+    startJob(db, jobId, () => runJobOperation(db, input))
     return { ok: true, message: 'The staging director is working in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'The staging director could not respond.', detail: errText(err) }
@@ -299,27 +263,20 @@ export async function executePlanAction(_prev: ActionResult | null, formData: Fo
     if (!chat?.pending_plan_json) throw new Error('no pending plan; ask the staging director first')
     const plan = StagingPlanSchema.parse(JSON.parse(chat.pending_plan_json))
     const destination = `/designs/${designId}/staging`
+    const input: JobInput = {
+      kind: 'planned_batch',
+      designId,
+      chatId: chat.chat_id,
+      plan,
+    }
     const jobId = createJob(db, {
       kind: 'planned_batch',
       design_id: designId,
       title: `Planned batch · ${detail.name}`,
       destination,
+      input,
     })
-    startJob(db, jobId, async () => {
-      const imageGenerator = defaultImageGenerator()
-      const ids = await runPlannedBatch(
-        db,
-        { imageGenerator },
-        { designId, dataDir: dataDir(), plan }
-      )
-      const cost = ids.reduce(
-        (sum, id) => sum + (getStagedImage(db, id)?.cost_usd ?? 0),
-        0
-      )
-      setPendingPlan(db, chat.chat_id, null)
-      revalidatePath(destination)
-      return { model: imageGenerator.label, cost_usd: cost }
-    })
+    startJob(db, jobId, () => runJobOperation(db, input))
     return { ok: true, message: 'The planned batch started in the rail.', jobId }
   } catch (err) {
     return { ok: false, message: 'Could not run the chat plan.', detail: errText(err) }

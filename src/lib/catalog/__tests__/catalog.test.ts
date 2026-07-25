@@ -45,6 +45,7 @@ describe('openDb', () => {
       'started_at',
       'finished_at',
       'heartbeat_at',
+      'input_json',
     ])
     db2.close()
   })

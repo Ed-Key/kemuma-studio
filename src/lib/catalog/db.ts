@@ -121,7 +121,11 @@ function migrate(db: Db): void {
       created_at TEXT NOT NULL,
       started_at TEXT,
       finished_at TEXT,
-      heartbeat_at TEXT
+      heartbeat_at TEXT,
+      -- The call that started the run, as JSON. Without it a job row records
+      -- that work happened but not what was asked for, which makes a retry
+      -- impossible and a replay impossible for the same reason.
+      input_json TEXT
     );
     CREATE TABLE IF NOT EXISTS job_logs (
       job_id INTEGER NOT NULL REFERENCES jobs(job_id),
@@ -154,5 +158,9 @@ function migrate(db: Db): void {
   }
   if (!designCols.includes('push_warned_at')) {
     db.exec('ALTER TABLE designs ADD COLUMN push_warned_at TEXT')
+  }
+  const jobCols = (db.prepare('PRAGMA table_info(jobs)').all() as Array<{ name: string }>).map((c) => c.name)
+  if (!jobCols.includes('input_json')) {
+    db.exec('ALTER TABLE jobs ADD COLUMN input_json TEXT')
   }
 }
