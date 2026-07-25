@@ -255,6 +255,16 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
             <PendingSubmit pendingLabel="Director is thinking..." orbState="composing" variant="primary">
               Send
             </PendingSubmit>
+            {/* The longest of the three and the one with the most to say: a
+                turn reads photos, writes six plan sections, and rewrites them
+                when the validator objects. Without this the whole account of
+                it lived in the rail, which is closed most of the time. */}
+            <RunningWork
+              kind="director_turn"
+              designId={detail.design_id}
+              label="The director is thinking"
+              orbState="composing"
+            />
           </div>
         </ActionForm>
         {pendingPlan && (
