@@ -158,7 +158,6 @@ export async function pushDraftToEtsy(
       item_height: parcelHeight,
       item_dimensions_unit: 'in',
     })
-    warnings.push('update mode: images not re-pushed')
   }
 
   const vocab = vocabForFamily(detail.family)

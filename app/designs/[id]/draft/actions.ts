@@ -94,7 +94,9 @@ export async function pushToEtsyAction(_prev: ActionResult | null, formData: For
     revalidatePath(`/designs/${designId}/draft`)
     return {
       ok: true,
-      message: res.created ? 'Created a draft listing on Etsy.' : 'Updated the Etsy listing.',
+      message: res.created
+        ? 'Created a draft listing on Etsy.'
+        : 'Updated the Etsy listing. Photos are left alone on an update.',
       detail: `listing ${res.listing_id} · ${res.images_uploaded} images · ${res.attributes_set} attributes${
         res.variations_set ? ' · variations set' : ''
       }`,
