@@ -103,6 +103,34 @@ function migrate(db: Db): void {
       pending_plan_json TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS jobs (
+      job_id INTEGER PRIMARY KEY,
+      kind TEXT NOT NULL
+        CHECK (kind IN ('director_turn', 'staging_batch', 'planned_batch', 'listing_copy')),
+      design_id INTEGER REFERENCES designs(design_id),
+      title TEXT NOT NULL,
+      status TEXT NOT NULL
+        CHECK (status IN ('queued', 'running', 'done', 'failed', 'interrupted')),
+      destination TEXT NOT NULL,
+      seen_at TEXT,
+      error TEXT,
+      model TEXT,
+      input_tokens INTEGER,
+      output_tokens INTEGER,
+      cost_usd REAL,
+      created_at TEXT NOT NULL,
+      started_at TEXT,
+      finished_at TEXT,
+      heartbeat_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS job_logs (
+      job_id INTEGER NOT NULL REFERENCES jobs(job_id),
+      log_type TEXT NOT NULL
+        CHECK (log_type IN ('text', 'tool_use', 'tool_result', 'error')),
+      tool_name TEXT,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
   `)
   const draftCols = (db.prepare('PRAGMA table_info(drafts)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!draftCols.includes('usage_json')) {

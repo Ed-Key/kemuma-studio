@@ -1,0 +1,178 @@
+import type { Db } from './db'
+
+export const JOB_KINDS = [
+  'director_turn',
+  'staging_batch',
+  'planned_batch',
+  'listing_copy',
+] as const
+export type JobKind = (typeof JOB_KINDS)[number]
+
+export const JOB_STATUSES = [
+  'queued',
+  'running',
+  'done',
+  'failed',
+  'interrupted',
+] as const
+export type JobStatus = (typeof JOB_STATUSES)[number]
+
+export type JobLogType = 'text' | 'tool_use' | 'tool_result' | 'error'
+
+export interface JobRecord {
+  job_id: number
+  kind: JobKind
+  design_id: number | null
+  title: string
+  status: JobStatus
+  destination: string
+  seen_at: string | null
+  error: string | null
+  model: string | null
+  input_tokens: number | null
+  output_tokens: number | null
+  cost_usd: number | null
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+  heartbeat_at: string | null
+}
+
+export interface JobUsage {
+  model?: string | null
+  input_tokens?: number | null
+  output_tokens?: number | null
+  cost_usd?: number | null
+}
+
+function timestamp(now: Date): string {
+  return now.toISOString()
+}
+
+export function create(
+  db: Db,
+  input: {
+    kind: JobKind
+    design_id?: number | null
+    title: string
+    destination: string
+  },
+  now = new Date()
+): number {
+  const result = db
+    .prepare(`
+      INSERT INTO jobs (kind, design_id, title, status, destination, created_at)
+      VALUES (?, ?, ?, 'queued', ?, ?)
+    `)
+    .run(
+      input.kind,
+      input.design_id ?? null,
+      input.title,
+      input.destination,
+      timestamp(now)
+    )
+  return Number(result.lastInsertRowid)
+}
+
+export function markRunning(db: Db, jobId: number, now = new Date()): void {
+  const at = timestamp(now)
+  db.prepare(`
+    UPDATE jobs
+    SET status = 'running', started_at = ?, heartbeat_at = ?, finished_at = NULL, error = NULL
+    WHERE job_id = ?
+  `).run(at, at, jobId)
+}
+
+export function heartbeat(db: Db, jobId: number, now = new Date()): void {
+  db.prepare(`
+    UPDATE jobs SET heartbeat_at = ?
+    WHERE job_id = ? AND status = 'running'
+  `).run(timestamp(now), jobId)
+}
+
+export function markDone(
+  db: Db,
+  jobId: number,
+  usage?: JobUsage,
+  now = new Date()
+): void {
+  db.prepare(`
+    UPDATE jobs
+    SET status = 'done', finished_at = ?, error = NULL,
+        model = ?, input_tokens = ?, output_tokens = ?, cost_usd = ?
+    WHERE job_id = ?
+  `).run(
+    timestamp(now),
+    usage?.model ?? null,
+    usage?.input_tokens ?? null,
+    usage?.output_tokens ?? null,
+    usage?.cost_usd ?? null,
+    jobId
+  )
+}
+
+export function markFailed(
+  db: Db,
+  jobId: number,
+  error: string,
+  now = new Date()
+): void {
+  db.prepare(`
+    UPDATE jobs
+    SET status = 'failed', error = ?, finished_at = ?
+    WHERE job_id = ?
+  `).run(error, timestamp(now), jobId)
+}
+
+export function markInterrupted(
+  db: Db,
+  jobId: number,
+  error: string | null = null,
+  now = new Date()
+): void {
+  db.prepare(`
+    UPDATE jobs
+    SET status = 'interrupted', error = ?, finished_at = ?
+    WHERE job_id = ?
+  `).run(error, timestamp(now), jobId)
+}
+
+export function listOpen(db: Db): JobRecord[] {
+  return db
+    .prepare(`
+      SELECT * FROM jobs
+      WHERE status IN ('queued', 'running')
+         OR (status IN ('done', 'failed', 'interrupted') AND seen_at IS NULL)
+      ORDER BY created_at DESC, job_id DESC
+    `)
+    .all() as JobRecord[]
+}
+
+export function get(db: Db, jobId: number): JobRecord | null {
+  const row = db.prepare('SELECT * FROM jobs WHERE job_id = ?').get(jobId) as
+    | JobRecord
+    | undefined
+  return row ?? null
+}
+
+export function appendLog(
+  db: Db,
+  input: {
+    job_id: number
+    log_type: JobLogType
+    tool_name?: string | null
+    content: string
+  },
+  now = new Date()
+): void {
+  db.prepare(`
+    INSERT INTO job_logs (job_id, log_type, tool_name, content, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    input.job_id,
+    input.log_type,
+    input.tool_name ?? null,
+    input.content.slice(0, 2000),
+    timestamp(now)
+  )
+}

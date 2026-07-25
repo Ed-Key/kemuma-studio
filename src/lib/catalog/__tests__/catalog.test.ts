@@ -18,12 +18,34 @@ describe('openDb', () => {
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all()
       .map((r) => (r as { name: string }).name)
-    expect(tables).toEqual(expect.arrayContaining(['designs', 'events', 'photos', 'pieces']))
+    expect(tables).toEqual(expect.arrayContaining(['designs', 'events', 'job_logs', 'jobs', 'photos', 'pieces']))
     const designColumns = db2
       .prepare('PRAGMA table_info(designs)')
       .all()
       .map((r) => (r as { name: string }).name)
     expect(designColumns).toEqual(expect.arrayContaining(['push_warnings_json', 'push_warned_at']))
+    const jobColumns = db2
+      .prepare('PRAGMA table_info(jobs)')
+      .all()
+      .map((r) => (r as { name: string }).name)
+    expect(jobColumns).toEqual([
+      'job_id',
+      'kind',
+      'design_id',
+      'title',
+      'status',
+      'destination',
+      'seen_at',
+      'error',
+      'model',
+      'input_tokens',
+      'output_tokens',
+      'cost_usd',
+      'created_at',
+      'started_at',
+      'finished_at',
+      'heartbeat_at',
+    ])
     db2.close()
   })
 
