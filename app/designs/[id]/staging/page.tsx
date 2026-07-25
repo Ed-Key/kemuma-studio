@@ -325,13 +325,6 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                       <ActionForm action={attachSceneToEtsyAction} className="stack-sm">
                         <input type="hidden" name="design_id" value={detail.design_id} />
                         <input type="hidden" name="staged_id" value={s.staged_id} />
-                        <label className="ack-row">
-                          <input type="checkbox" name="acknowledge" required />
-                          <span>
-                            I understand Etsy requires real photos in listing galleries; attaching an
-                            AI-staged scene is at my own risk.
-                          </span>
-                        </label>
                         <div className="action-row">
                           <PendingSubmit pendingLabel="Adding to listing..." orbState="working" variant="ghost">
                             Add to Etsy listing

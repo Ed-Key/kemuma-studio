@@ -188,7 +188,6 @@ export async function attachSceneToEtsyAction(_prev: ActionResult | null, formDa
   try {
     const designId = Number(formData.get('design_id'))
     const stagedId = Number(formData.get('staged_id'))
-    if (formData.get('acknowledge') !== 'on') throw new Error('check the acknowledgment first')
     const db = getCatalogDb()
 
     const { getStagedImage, markStagedUploaded } = await import('@/lib/catalog/staged')

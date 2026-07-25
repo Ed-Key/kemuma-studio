@@ -166,7 +166,7 @@ button:not(:disabled) {
 /* A checked control follows the page, not the OS. Left to the UA these paint
    the system blue, which on a warm ground is the highest-chroma thing in view
    and lands on a checkbox. Declared once so a new control is right the moment
-   it is written; the consent checkbox overrides it further down. */
+   it is written. */
 input[type='checkbox'],
 input[type='radio'] {
   accent-color: var(--accent);
@@ -1641,22 +1641,6 @@ input[type='radio'] {
 .plan-scene {
   color: var(--text-2);
   font-size: 14px;
-}
-
-/* This is a consent line Ed has to actually read, so the caution lives in the
-   checkbox and the sentence stays at reading contrast. --warn is a dull gold on
-   paper and fails at 12px. */
-.ack-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  color: var(--text-2);
-  font-size: 12px;
-  max-width: 420px;
-}
-.ack-row input {
-  margin-top: 2px;
-  accent-color: var(--warn);
 }
 
 /* ---- Edsty ---------------------------------------------------------------

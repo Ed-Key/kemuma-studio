@@ -106,8 +106,8 @@ export function listApprovedImages(db: Db): Array<StagedImageRecord & { design_n
     .all() as Array<StagedImageRecord & { design_name: string }>
 }
 
-// Owner's override (2026-07-24): scenes can ship to a listing gallery only
-// through an explicit acknowledged action; this records that it happened.
+// Owner's override (2026-07-24): scenes can ship to a listing gallery through
+// an explicit action; this records that it happened.
 export function markStagedUploaded(db: Db, stagedId: number): void {
   db.prepare("UPDATE staged_images SET etsy_uploaded_at = datetime('now') WHERE staged_id = ?").run(stagedId)
   logEvent(db, 'stage.attached', { staged_id: stagedId })
