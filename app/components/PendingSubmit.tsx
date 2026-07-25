@@ -1,8 +1,9 @@
 'use client'
 
+import { useContext } from 'react'
 import { useFormStatus } from 'react-dom'
 import WorkingOrb, { type OrbState } from './WorkingOrb'
-import MetalButton from './MetalButton'
+import { FormPendingContext } from './ActionForm'
 
 type Variant = 'primary' | 'ghost' | 'default'
 
@@ -10,8 +11,7 @@ type Variant = 'primary' | 'ghost' | 'default'
  * Submit button that swaps in the working orb while its form is pending.
  * `pendingLabel` is the verb-specific status ("Writing listing...", etc.),
  * `orbState` picks the matching thinking-orbs animation, `children` is the
- * idle label. Active primary buttons are wrapped in MetalButton for the
- * animated liquid-silver ring, applied uniformly to every primary action.
+ * idle label.
  */
 export default function PendingSubmit({
   children,
@@ -28,7 +28,12 @@ export default function PendingSubmit({
   disabled?: boolean
   block?: boolean
 }) {
-  const { pending } = useFormStatus()
+  // ActionForm dispatches through useActionState, and useFormStatus does not
+  // see those submissions, so its flag is the authority when there is one.
+  // useFormStatus still covers plain forms that post a server action directly.
+  const dispatched = useContext(FormPendingContext)
+  const { pending: submitted } = useFormStatus()
+  const pending = dispatched || submitted
 
   if (pending) {
     // Shed the button chrome so the orb pill stands on its own.
@@ -48,17 +53,9 @@ export default function PendingSubmit({
     .filter(Boolean)
     .join(' ')
 
-  const button = (
+  return (
     <button type="submit" className={cls} disabled={disabled}>
       {children}
     </button>
   )
-
-  // Every active primary button gets the metal-fx silver ring. Disabled
-  // primaries (e.g. an already-approved draft) stay a plain dark button.
-  if (variant === 'primary' && !disabled) {
-    return <MetalButton>{button}</MetalButton>
-  }
-
-  return button
 }
