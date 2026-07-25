@@ -1,31 +1,65 @@
 /* Kemuma Studio - "Stonework" design system.
-   Dark-first, monochrome UI so the soapstone photography carries the color.
-   One warm terracotta accent, hairline borders, no shadows. */
+   Warm paper ground, monochrome UI so the soapstone photography carries the
+   color. Every carving is shot on a white sweep, so on the old near-black
+   ground the pages read as a checkerboard of glowing rectangles; on paper the
+   photographs sit in the page instead of burning out of it.
+   One warm terracotta accent, spent only on real actions. Hairline borders. */
 
 :root {
-  --bg: #0b0b0c;
-  --surface: #131315;
-  --surface-2: #1a1a1d;
-  --border: #26262a;
-  /* Hover/emphasis border. Was inlined as raw hex in four rules. */
-  --border-strong: #34343a;
-  --text: #ededef;
-  --text-2: #8a8a93;
-  --accent: #c98a5e;
-  --ok: #6fbf8f;
-  --warn: #d9a648;
-  --danger: #c96a5e;
+  --bg: #f3efe7;
+  --surface: #fbf9f5;
+  /* One step below the page: wells, chips, and controls that sit on a card. */
+  --surface-2: #eae5da;
+  /* The step past --surface-2, for hovering something already recessed. Kept
+     clear of --border so a hovered control never eats its own hairline. */
+  --surface-3: #e1dbce;
+  /* The step ABOVE --surface. The only thing that goes here is a contact-sheet
+     cell under the pointer: on a warm ground the one available move is toward
+     white, and it has to be white rather than a warmer tint or it reads as a
+     stain instead of a highlight. */
+  --surface-lift: #ffffff;
+  --border: #ded6c8;
+  /* Hover/emphasis border, and the only hairline strong enough to hold a
+     white-sweep photograph apart from a near-white panel. */
+  --border-strong: #c9bfad;
+  --text: #241f1a;
+  /* Secondary body copy. 5.5:1 on paper, so it still reads as prose. */
+  --text-2: #6d645a;
+  /* Tertiary chrome only (counts, char meters, machine values). 3:1, which is
+     deliberately too low for anything anyone has to actually read. */
+  --text-3: #9a9084;
+  --accent: #a55a2c;
+  --accent-strong: #8c4a24;
+  --ok: #3d7a52;
+  --warn: #9a7415;
+  --danger: #a83a2c;
+  /* Busy-state wash. Paper with alpha: a dark scrim on this ground reads as a
+     rendering fault rather than as work in progress. */
+  --scrim: rgba(243, 239, 231, 0.82);
 
   --radius: 0;
   /* Ed wants everything fully square. */
   --radius-pill: 0;
 
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-serif: Georgia, "Times New Roman", serif;
-  --font-mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  --font-sans: var(--font-instrument), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  /* Hero numerals only. Didot is the face the design was drawn in and it ships
+     with macOS, so naming it renders the real thing on Ed's machine. It is
+     Monotype's and is not redistributable, so it is named and never bundled;
+     Noto Serif Display is the self-hosted cut that carries every other
+     machine. Didone hairlines die below about 28px, so this is never used for
+     small labels. */
+  --font-numeral: Didot, var(--font-noto-serif-display), Georgia, serif;
 
   --gutter: 32px;
-  --sidebar-w: 200px;
+  /* The rail is an island that overlays the page. The grid column it lives in
+     is pinned at the COLLAPSED footprint, so opening the rail never reflows the
+     contact sheet behind it. */
+  --rail-inset: 14px;
+  --rail-collapsed: 50px;
+  --rail-open: 200px;
+  --rail-w: calc(var(--rail-inset) + var(--rail-collapsed));
   --content-max: 1200px;
 }
 
@@ -39,6 +73,10 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* The UA controls have to follow the page, not the OS. Without this, Ed's
+     dark system preference paints dark scrollbars, select menus and checkboxes
+     onto a paper page. */
+  color-scheme: light;
 }
 
 body {
@@ -69,12 +107,23 @@ h2 {
 }
 
 a {
-  color: var(--accent);
+  color: inherit;
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
+}
+
+/* Inline links opt in when the words themselves are the action. Whole cards,
+   navigation, backlinks, and captions keep the ink of their surroundings. */
+.text-link {
+  color: var(--accent);
+}
+
+a.card:hover {
+  border-color: var(--border-strong);
+  text-decoration: none;
 }
 
 p {
@@ -114,67 +163,196 @@ button:not(:disabled) {
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
+/* A checked control follows the page, not the OS. Left to the UA these paint
+   the system blue, which on a warm ground is the highest-chroma thing in view
+   and lands on a checkbox. Declared once so a new control is right the moment
+   it is written; the consent checkbox overrides it further down. */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+
 /* ---- App shell ---------------------------------------------------------- */
 
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-columns: var(--rail-w) 1fr;
   min-height: 100vh;
 }
 
+/* The in-flow placeholder. It holds the collapsed footprint open in the grid;
+   the rail itself is fixed and floats over whatever is beside it. */
+.rail {
+  padding: var(--rail-inset) 0 var(--rail-inset) var(--rail-inset);
+}
+
 .sidebar {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  height: 100vh;
-  background: var(--bg);
-  border-right: 1px solid var(--border);
-  /* Extra bottom padding lifts the footer clear of Next's dev-tools badge. */
-  padding: 24px 16px 64px;
+  position: fixed;
+  top: var(--rail-inset);
+  left: var(--rail-inset);
+  bottom: var(--rail-inset);
+  width: var(--rail-open);
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 14px 10px 12px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  transition: width 180ms ease;
+}
+
+.sidebar[data-collapsed='true'] {
+  width: var(--rail-collapsed);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Collapsed, the rail is a column of glyphs. Dropping the side padding lets the
+   rows run wall to wall so the active band reads as a band, and centring every
+   row puts each glyph on one axis so nothing shifts as the words fold away. */
+.sidebar[data-collapsed='true'] .brand,
+.sidebar[data-collapsed='true'] .origin,
+.sidebar[data-collapsed='true'] .nav-item {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* The words fold their WIDTH, not just their opacity. Fading them alone leaves
+   their boxes in the flex line, and those boxes push the icons out of a 50px
+   rail: the labels look gone while the glyphs are the thing that moved. */
+.sidebar[data-collapsed='true'] .wordmark,
+.sidebar[data-collapsed='true'] .origin span,
+.sidebar[data-collapsed='true'] .nav-label,
+.sidebar[data-collapsed='true'] .nav-count {
+  opacity: 0;
+  max-width: 0;
+  margin: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wordmark,
+.origin span,
+.nav-label,
+.nav-count {
+  white-space: nowrap;
+  max-width: 150px;
+  transition: opacity 120ms ease, max-width 180ms ease;
+}
+
+/* A machine value, so it takes the mono face. The only mono left in the rail. */
+.nav-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
 }
 
 .brand {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 5px 0;
+  min-height: 38px;
   color: var(--text);
-  padding: 4px 8px 20px;
-  display: block;
 }
 
 .brand:hover {
   text-decoration: none;
 }
 
+.crest {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  overflow: hidden;
+  /* A white-sweep photograph against a near-white panel needs the stronger
+     hairline or it has no edge at all. */
+  border: 1px solid var(--border-strong);
+  transition: width 180ms ease, height 180ms ease;
+}
+
+.sidebar[data-collapsed='true'] .crest {
+  width: 28px;
+  height: 28px;
+}
+
+.crest img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.wordmark {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.wordmark small {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.origin {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  margin-top: -6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.origin img {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border: 1px solid var(--border-strong);
+  display: block;
+}
+
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 8px;
+  padding: 7px 9px;
   border-radius: var(--radius);
   color: var(--text-2);
-  border: 1px solid transparent;
   font-size: 14px;
+  overflow: hidden;
 }
 
+/* On the old ground "lighter" meant raised, so hover lifted to --surface. The
+   rail is now a panel, so hover has to go the other way and recess. */
 .nav-item:hover {
   color: var(--text);
-  background: var(--surface);
+  background: var(--surface-2);
   text-decoration: none;
 }
 
+/* Being somewhere is not an action, so the active item no longer spends the
+   accent on its label; it takes a recessed band with an accent edge instead. */
 .nav-item.active {
-  color: var(--accent);
-  border-color: var(--border);
-  background: var(--surface);
+  color: var(--text);
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--accent);
+  font-weight: 500;
 }
 
 .nav-item svg {
@@ -183,11 +361,19 @@ button:not(:disabled) {
   flex: none;
 }
 
-.sidebar-foot {
-  margin-top: auto;
-  padding: 8px;
-  color: var(--text-2);
-  font-size: 12px;
+.nav-label {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .crest,
+  .wordmark,
+  .origin span,
+  .nav-label,
+  .nav-count {
+    transition: none;
+  }
 }
 
 .content {
@@ -203,15 +389,32 @@ button:not(:disabled) {
   margin-bottom: 28px;
 }
 
+/* When a utility row follows the title it belongs to the title, not to the
+   work below it. */
+.page-head--tight {
+  margin-bottom: 10px;
+}
+
 .page-head .eyebrow {
   color: var(--text-2);
   font-size: 13px;
   margin-top: 6px;
 }
 
+/* The current tab is a place, not an action, so it holds itself with weight and
+   a filled face rather than borrowing the accent. */
 .btn--ghost[aria-current='page'] {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+  font-weight: 500;
+}
+
+/* The state that rides along inside a tab: quiet, and a size down so it never
+   competes with the tab's own label. */
+.tab-state {
+  color: var(--text-2);
+  font-size: 13px;
 }
 
 .backlink {
@@ -240,8 +443,6 @@ button:not(:disabled) {
   margin-bottom: 14px;
 }
 
-/* ---- Stat cards --------------------------------------------------------- */
-
 .stat-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -249,25 +450,157 @@ button:not(:disabled) {
   margin-bottom: 32px;
 }
 
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
+/* ---- Page utilities ----------------------------------------------------- */
+
+/* Sync and create are things you do to the catalog, not the catalog, so they
+   sit in a quiet right-aligned row above the work rather than competing with
+   it. Sync stays in the page body on purpose: its banner is where per-listing
+   failures are reported, and a rail that clips and self-collapses would eat
+   them. */
+.catalog-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
-.stat-number {
-  font-family: var(--font-serif);
-  font-size: 40px;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-label {
+.tool-link {
   color: var(--text-2);
   font-size: 13px;
-  margin-top: 8px;
+}
+
+.tool-link:hover {
+  color: var(--text);
+}
+
+.new-design > summary {
+  list-style: none;
+}
+
+.new-design > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Open, the create form takes the whole row. Left in the right-hand cluster it
+   would be a three-field form squeezed into a button's width. */
+.new-design[open] {
+  flex: 1 1 100%;
+}
+
+.new-design[open] > summary {
+  margin-bottom: 12px;
+}
+
+/* Two short fields do not want a 1100px line each. */
+.new-design form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.new-design form .action-row {
+  grid-column: 1 / -1;
+}
+
+/* ---- Action line -------------------------------------------------------- */
+
+/* Its own species, and the only full-width thing above the stats: one sentence
+   naming one design and the one move it wants. The accent is spent on the left
+   edge and the link, which are the two parts of this that are an action. */
+.action-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 13px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  font-size: 14.5px;
+}
+
+/* Nothing outstanding is not an action. The clear state keeps the frame, so
+   finishing the last job does not make the page jump, and gives the edge back. */
+.action-line--clear {
+  border-left-color: var(--border-strong);
+}
+
+.action-line b {
+  font-weight: 600;
+}
+
+.action-line a {
+  color: var(--accent);
+  font-weight: 500;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* ---- Stats strip -------------------------------------------------------- */
+
+/* Three readings of one shop, so one frame divided three ways rather than three
+   cards floating apart with their own borders. */
+.stat-strip {
+  display: flex;
+  margin: 14px 0 30px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.stat {
+  flex: 1;
+  padding: 13px 17px;
+  border-right: 1px solid var(--border);
+}
+
+.stat:last-child {
+  border-right: 0;
+}
+
+/* The only place the Didone runs. Its hairlines die below about 28px, so this
+   never sets a label, and the unit beside it is a word set in the sans rather
+   than pushed through the same face. */
+.stat-value {
+  font-family: var(--font-numeral);
+  font-weight: 300;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.stat-unit {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-2);
+  margin-left: 5px;
+}
+
+.stat-note {
+  color: var(--text-2);
+  font-size: 12.5px;
+  margin-top: 6px;
+}
+
+/* ---- Section heads ------------------------------------------------------ */
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 30px 0 11px;
+}
+
+.section-head h2 {
+  font-size: 17px;
+}
+
+.section-head .hint {
+  color: var(--text-3);
+  font-size: 12.5px;
 }
 
 /* ---- Pills -------------------------------------------------------------- */
@@ -275,6 +608,10 @@ button:not(:disabled) {
 .pill {
   display: inline-flex;
   align-items: center;
+  /* A chip has to hug its word. Inline-flex says nothing to a grid parent, and
+     most pills here sit in a .stack-sm, where the default stretch turned every
+     status into a full-width bar the size of the card. */
+  justify-self: start;
   gap: 6px;
   padding: 2px 10px;
   border-radius: var(--radius-pill);
@@ -292,27 +629,33 @@ button:not(:disabled) {
   height: 6px;
   /* Ed's call: status indicator stays a circular dot inside square chips. */
   border-radius: 50%;
-  background: currentColor;
-  opacity: 0.9;
+  background: var(--pill-dot, currentColor);
 }
 
 .pill--none::before {
   display: none;
 }
 
+/* The word and the dot used to be one colour, which worked on a dark ground
+   because every status hue was a pale tint. On paper the same hues are dark
+   enough to be legible as a 6px dot and too dark to be comfortable as 12px
+   text, so status now lives in the dot and the word stays quiet. Only the two
+   states that ask Ed for something keep a coloured word. */
 .pill--ok {
-  color: var(--ok);
+  --pill-dot: var(--ok);
 }
 
 .pill--warn {
-  color: var(--warn);
+  --pill-dot: var(--warn);
 }
 
 .pill--danger {
+  --pill-dot: var(--danger);
   color: var(--danger);
 }
 
 .pill--accent {
+  --pill-dot: var(--accent);
   color: var(--accent);
 }
 
@@ -338,26 +681,34 @@ button:not(:disabled) {
 
 .btn:hover {
   border-color: var(--border-strong);
-  background: var(--surface);
+  background: var(--surface-3);
 }
 
+/* Dimming ink on paper barely registers: 0.75 of --text still lands near 9:1
+   and read as enabled. A disabled control has to change species, not opacity. */
 .btn:disabled {
-  opacity: 0.75;
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-3);
 }
 
-/* Primary buttons are a plain dark pill; the metal-fx silver ring (added by
-   MetalButton) supplies the metal, reading against this dark face exactly like
-   the package playground's "Upgrade to Pro" reference. No CSS metal face. */
+/* The primary action carries the accent, and it is the only place in a page
+   that does. It used to be a plain dark pill identical to .btn, distinguished
+   only by an animated silver ring drawn behind it. On paper the button paints
+   its own face, so the ring had nothing left to draw on and was dropped; the
+   fill is what marks the primary now. */
 .btn--primary {
-  background: var(--surface-2);
-  color: var(--text);
-  border-color: var(--border);
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.btn--primary:hover {
-  background: var(--surface);
-  border-color: var(--border-strong);
+/* Guarded, because this rule sits after .btn:disabled and matches it just as
+   specifically: without it a disabled primary lights up under the pointer. */
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
 }
 
 .btn--ghost {
@@ -365,7 +716,7 @@ button:not(:disabled) {
 }
 
 .btn--ghost:hover {
-  background: var(--surface);
+  background: var(--surface-2);
 }
 
 .btn--block {
@@ -404,7 +755,7 @@ button:not(:disabled) {
 
 .input::placeholder,
 .textarea::placeholder {
-  color: var(--text-2);
+  color: var(--text-3);
 }
 
 .input:focus,
@@ -449,7 +800,9 @@ button:not(:disabled) {
   position: relative;
   display: grid;
   gap: 6px;
-  border: 1px dashed var(--border);
+  /* Dashed edges are drawn half as much ink as a solid rule, so on paper they
+     need the stronger hairline to read as a boundary at all. */
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
   padding: 28px 20px;
   text-align: center;
@@ -462,7 +815,7 @@ button:not(:disabled) {
 }
 
 .drop-count {
-  color: var(--text-2);
+  color: var(--text-3);
   font-size: 12px;
 }
 
@@ -505,7 +858,7 @@ button:not(:disabled) {
 }
 
 .picker-count {
-  color: var(--text-2);
+  color: var(--text-3);
   font-family: var(--font-mono);
   font-size: 12px;
 }
@@ -520,9 +873,17 @@ button:not(:disabled) {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* Every carving is photographed on a white sweep. On the old ground the frame
+   around a photo was decoration; on paper it is the only thing separating
+   near-white from near-white, so photo frames take --border-strong while the
+   rest of the UI keeps the quieter hairline. */
+/* The tile is the size of its photograph. The caption used to set the width, so
+   a colorway like "assorted (pink blue tan magenta)" stretched a 72px thumbnail
+   into a 270px box and the row broke into mostly-empty rectangles. */
 .photo-choice {
   position: relative;
-  border: 1px solid var(--border);
+  width: 76px;
+  border: 1px solid var(--border-strong);
   padding: 2px;
 }
 .photo-choice input {
@@ -539,11 +900,19 @@ button:not(:disabled) {
   height: 72px;
   object-fit: cover;
 }
-.photo-choice .mono {
+/* A colorway is a word, so it is not set in mono, and it is only here to say
+   which piece the photo is of. It truncates rather than growing the tile; the
+   full name is on the title attribute. */
+.photo-caption {
   display: block;
-  font-size: 10px;
+  width: 72px;
+  padding-top: 3px;
+  font-size: 11px;
+  color: var(--text-2);
   text-align: center;
-  padding-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .staged-grid {
   display: grid;
@@ -553,8 +922,25 @@ button:not(:disabled) {
 .staged-img {
   display: block;
   width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
 }
+/* The caption under a render is the design's name. It was mono at tertiary
+   contrast, which set a proper noun as if it were a machine value and then
+   painted it terracotta for being a link. It reads as a caption now, and it
+   answers with ink because the whole library would otherwise be accent. */
+.staged-caption {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.staged-caption a {
+  color: inherit;
+}
+
+.staged-caption a:hover {
+  color: var(--text);
+}
+
 .policy-note {
   color: var(--text-2);
   font-size: 13px;
@@ -595,7 +981,7 @@ button:not(:disabled) {
   color: var(--text-2);
 }
 
-/* ---- Catalog grid ------------------------------------------------------- */
+/* ---- Simple card grid --------------------------------------------------- */
 
 .design-grid {
   display: grid;
@@ -603,100 +989,186 @@ button:not(:disabled) {
   gap: 16px;
 }
 
-.design-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  color: var(--text);
-}
-
-.design-card:hover {
-  border-color: var(--border-strong);
-  text-decoration: none;
-}
-
-.design-cover {
-  aspect-ratio: 4 / 3;
-  width: 100%;
-  object-fit: cover;
-  display: block;
-  background: var(--surface-2);
-}
-
-.design-cover--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  font-size: 12px;
-}
-
-.design-body {
-  padding: 14px 16px;
-  display: grid;
-  gap: 6px;
-}
-
 .design-name {
   font-family: var(--font-serif);
   font-size: 16px;
 }
 
-.design-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+/* ---- Contact sheet ------------------------------------------------------ */
+
+/* Cells share their edges. The 1px gap over a --border ground IS the hairline,
+   so nothing floats in a gutter and every frame is the same size. That only
+   holds with a fixed column count: auto-fill would leave the ground showing
+   through the empty tracks of a ragged last row as two solid blocks, which
+   reads as a rendering fault rather than as a grid. */
+.contact-sheet {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
 }
 
-.design-family {
-  color: var(--text-2);
-  font-size: 13px;
+/* Real inventory rarely divides by four, so the tail of the last row is filled
+   with page-coloured frames. They read as unshot frames on a contact sheet,
+   which is what they are. */
+.sheet-filler {
+  background: var(--bg);
 }
 
-.design-qty {
-  color: var(--text-2);
-  font-size: 13px;
-  font-family: var(--font-mono);
-}
-
-.ghost-card {
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  background: transparent;
-  padding: 20px;
+.sheet-cell {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: 200px;
+  background: var(--surface);
+  color: var(--text);
+  transition: background 150ms ease;
 }
 
-.ghost-card summary {
-  color: var(--text-2);
-  list-style: none;
+.sheet-cell:hover {
+  background: var(--surface-lift);
+  text-decoration: none;
+}
+
+/* Nothing is ever drawn over a photograph. The status the old card stamped on
+   the cover now lives as a word in the body, below. */
+.sheet-shot {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.sheet-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sheet-shot--empty {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 100%;
-  min-height: 160px;
   justify-content: center;
+  color: var(--text-3);
+  font-size: 12px;
 }
 
-.ghost-card summary::-webkit-details-marker {
-  display: none;
+/* Equal-height bodies are what keep the shared hairlines straight across a row,
+   so the name clamps at two lines (this catalog really does have names like
+   "Painted Safari Sunset Coaster Set") and the footer is pinned to the bottom. */
+.sheet-body {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px 11px;
+  min-height: 96px;
 }
 
-.ghost-card[open] summary {
-  min-height: 0;
-  justify-content: flex-start;
-  margin-bottom: 12px;
+.sheet-name {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.ghost-card summary:hover {
+.sheet-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.sheet-meta > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mono survives here because a count is a machine value. */
+.sheet-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sheet-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  align-self: end;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+/* The dot says where the listing stands on Etsy; the word says what to do about
+   it. Only a word that asks Ed for something takes the accent, so the accent
+   partitions the page along the same line the section heads do. */
+.status-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: var(--accent);
+  font-weight: 500;
+}
+
+.status-word--done {
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.status-word i {
+  width: 6px;
+  height: 6px;
+  /* Same call as .pill: the status indicator stays a circle inside square UI. */
+  border-radius: 50%;
+  flex: none;
+}
+
+.status-word--live i {
+  background: var(--ok);
+}
+
+.status-word--draft i {
+  background: var(--warn);
+}
+
+.status-word--off i {
+  background: var(--text-3);
+}
+
+.status-word--attn {
+  color: var(--danger);
+}
+
+.status-word--attn i {
+  background: var(--danger);
+}
+
+.sheet-price {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A price from an unapproved draft is the model's guess, and the two differ by
+   real money (one design was generated at 68 and approved at 55). It keeps the
+   tertiary tone so it never carries the authority of a number Ed signed off. */
+.sheet-price--draft {
+  color: var(--text-3);
+}
+
+.sheet-price--none {
+  font-size: 11px;
+  color: var(--text-3);
 }
 
 /* ---- Pieces table ------------------------------------------------------- */
@@ -741,8 +1213,8 @@ button:not(:disabled) {
   height: 56px;
   width: 56px;
   object-fit: cover;
-  border-radius: 0;
-  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
 }
 
 /* ---- Draft layout ------------------------------------------------------- */
@@ -772,7 +1244,7 @@ button:not(:disabled) {
 .rail-photo {
   width: 100%;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   display: block;
 }
 
@@ -784,7 +1256,7 @@ button:not(:disabled) {
 .counter {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-2);
+  color: var(--text-3);
 }
 
 .counter--over {
@@ -794,7 +1266,7 @@ button:not(:disabled) {
 .meta-line {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--text-2);
+  color: var(--text-3);
 }
 
 /* ---- Bake-off ----------------------------------------------------------- */
@@ -806,12 +1278,13 @@ button:not(:disabled) {
   align-items: start;
 }
 
+/* Was letterspaced uppercase mono. Mono is for machine values here, and a
+   tracked all-caps microlabel is the loudest tell in a generated interface, so
+   this is now just a quiet sentence-case line. */
 .contestant-label {
-  font-family: var(--font-mono);
   color: var(--text-2);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .contestant-desc {
@@ -841,8 +1314,8 @@ button:not(:disabled) {
 
 .strip-photo {
   height: 96px;
-  border-radius: 0;
-  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
   object-fit: cover;
 }
 
@@ -881,7 +1354,6 @@ button:not(:disabled) {
 }
 
 .select-row input[type="radio"] {
-  accent-color: var(--accent);
   margin-right: 8px;
 }
 
@@ -893,7 +1365,7 @@ button:not(:disabled) {
 
 .evidence {
   color: var(--text-2);
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--border-strong);
   padding-left: 12px;
   font-size: 14px;
 }
@@ -934,7 +1406,7 @@ button:not(:disabled) {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(11, 11, 12, 0.72);
+  background: var(--scrim);
   border-radius: var(--radius);
   color: var(--text-2);
   font-size: 13px;
@@ -1004,7 +1476,7 @@ button:not(:disabled) {
 
 .empty {
   color: var(--text-2);
-  border: 1px dashed var(--border);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
   padding: 24px;
   text-align: center;
@@ -1028,24 +1500,33 @@ button:not(:disabled) {
 }
 .chat-msg--user {
   align-self: flex-end;
-  border-color: #3a342e;
+  border-color: var(--border-strong);
 }
 .chat-msg p {
   margin: 4px 0 0;
   white-space: pre-wrap;
 }
+/* Same call as .contestant-label: the speaker's name is a word, not a caption
+   set in small caps. */
 .chat-role {
-  font-size: 11px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  /* Who said it is read, not skimmed past, so it sits at body-secondary
+     contrast rather than the tertiary tone reserved for machine chrome. */
   color: var(--text-2);
 }
+/* A paragraph of standing notes is not an action, and a paragraph in terracotta
+   spends the accent budget on the longest run of text on the page. Its own
+   "Staging notes:" prefix already labels it. */
 .chat-note {
-  color: var(--accent);
+  color: var(--text-2);
   font-size: 13px;
 }
+/* A full terracotta rectangle spent the accent on a container. The accent marks
+   the edge the eye should enter at; the box itself is ordinary. */
 .plan-card {
-  border: 1px solid var(--accent);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
   padding: 14px 16px;
 }
 .plan-scene {
@@ -1053,11 +1534,14 @@ button:not(:disabled) {
   font-size: 14px;
 }
 
+/* This is a consent line Ed has to actually read, so the caution lives in the
+   checkbox and the sentence stays at reading contrast. --warn is a dull gold on
+   paper and fails at 12px. */
 .ack-row {
   display: flex;
   gap: 8px;
   align-items: flex-start;
-  color: var(--warn);
+  color: var(--text-2);
   font-size: 12px;
   max-width: 420px;
 }
@@ -1066,12 +1550,127 @@ button:not(:disabled) {
   accent-color: var(--warn);
 }
 
-/* metal-fx keeps its subtree at opacity 0 and visibility hidden until its first
-   WebGL copy lands. When that copy never arrives (cold loads, a torn-down
-   shared renderer) the primary button inside it vanishes from the page, so the
-   form loses its submit control. The ring is decoration; force the host visible
-   and let the canvas fade in behind the button if and when it renders. */
-.metal-fx-root {
-  opacity: 1 !important;
-  visibility: visible !important;
+/* ---- Edsty ---------------------------------------------------------------
+   A play on the Etsy logotype: the borrowed "Et" is crossed out AND faded, so
+   the eye reads "Edsty" first and only then notices what was done to get there.
+   A strike on its own does not stop you reading the letters, which is why the
+   plainer versions landed the joke a beat late. Etsy's own orange, set in the
+   serif because their logotype is a serif.
+
+   Parody of a registered mark. It belongs in this private tool and does not go
+   on anything public. */
+.edsty {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.012em;
+  color: #f1641e;
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  user-select: none;
+  flex: none;
+}
+
+.edsty-struck {
+  position: relative;
+  opacity: 0.42;
+}
+
+.edsty-struck::after {
+  content: '';
+  position: absolute;
+  left: -3%;
+  right: -3%;
+  top: 52%;
+  height: 0.075em;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+/* Below about 24px the rule and the letterforms fight and it reads as mush, so
+   the device is removed rather than shrunk and the mark degrades to "Edsty". */
+@media (max-width: 720px) {
+  .edsty {
+    font-size: 17px;
+  }
+  .edsty-struck::after {
+    display: none;
+  }
+}
+
+/* ---- Toasts --------------------------------------------------------------
+   Action results used to render inline inside the form that caused them, so a
+   two-line sync report shoved the tools row sideways and reflowed the page
+   under the pointer. They sit out of the flow now, bottom right, clear of the
+   rail on the left and the page head above. */
+.toast {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 60;
+  max-width: 380px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 12px 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  font-size: 14px;
+  box-shadow: 0 6px 24px rgba(36, 31, 26, 0.09);
+  animation: toast-in 160ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
+
+.toast-body {
+  display: grid;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-detail {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.toast-close {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-2);
+  flex: none;
+}
+
+.toast-close:hover {
+  color: var(--text);
+}
+
+.toast--ok {
+  border-left-color: var(--ok);
+}
+
+.toast--warn {
+  border-left-color: var(--warn);
+}
+
+.toast--danger {
+  border-left-color: var(--danger);
 }

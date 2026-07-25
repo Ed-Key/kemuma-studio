@@ -37,7 +37,7 @@ export default function MarketingPage() {
                   <div key={s.staged_id} className="card stack-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img className="staged-img" src={`/api/staged/${s.staged_id}`} alt={s.design_name} />
-                    <div className="meta-line">
+                    <div className="staged-caption">
                       <Link href={`/designs/${s.design_id}/staging`}>{s.design_name}</Link>
                     </div>
                   </div>

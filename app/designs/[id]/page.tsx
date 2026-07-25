@@ -9,10 +9,14 @@ import PhotoPicker from '../../components/PhotoPicker'
 
 export const dynamic = 'force-dynamic'
 
+/* The dot carries how far the piece is from being on Etsy, on the same three
+   colours the catalog uses: green once it is listed, gold while it is only
+   drafted or approved copy, grey before that. The word beside it carries the
+   rest, so no status has to borrow the accent to be distinguishable. */
 function pieceStatusPill(status: string) {
   const map: Record<string, string> = {
-    listed: 'pill pill--accent',
-    approved: 'pill pill--ok',
+    listed: 'pill pill--ok',
+    approved: 'pill pill--warn',
     drafted: 'pill pill--warn',
     cataloged: 'pill',
   }
@@ -26,7 +30,7 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
     return (
       <div>
         <p className="empty">
-          Design not found. <Link href="/designs">Back to catalog</Link>
+          Design not found. <Link href="/designs" className="text-link">Back to catalog</Link>
         </p>
       </div>
     )

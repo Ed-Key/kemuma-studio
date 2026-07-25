@@ -53,7 +53,9 @@ export default async function IntakeReviewPage({ params }: { params: Promise<{ i
         {exemplar && proposal?.decision === 'existing' && (
           <p>
             Proposed match:{' '}
-            <Link href={`/designs/${exemplar.design_id}`}>{exemplar.name}</Link>
+            <Link href={`/designs/${exemplar.design_id}`} className="text-link">
+              {exemplar.name}
+            </Link>
           </p>
         )}
       </div>

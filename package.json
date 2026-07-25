@@ -15,7 +15,6 @@
     "@anthropic-ai/sdk": "^0.114.0",
     "better-sqlite3": "^13.0.1",
     "dotenv": "^17.4.2",
-    "metal-fx": "^1.0.4",
     "next": "^15.5.21",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

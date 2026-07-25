@@ -38,11 +38,16 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
   const detail = getDesignDetail(db, Number(id))
   if (!detail) return <p className="empty">Design not found.</p>
   const scenes = scenesForFamily(detail.family)
+  // The caption on a reference-photo tile only has to say which piece the photo
+  // is of, and the dimensions are the same for every photo of a piece, so the
+  // colorway carries it alone. The parenthetical spelling-out of an assorted
+  // colorway ("assorted (pink blue tan magenta)") belongs to the pieces table,
+  // not to a 72px tile; the full string stays on the title attribute.
   const photos = detail.pieces.flatMap((p) =>
     p.photos.map((ph) => ({
       photo_id: ph.photo_id,
       colorway: p.colorway,
-      caption: `${p.colorway} · ${p.height_in} x ${p.width_in} in`,
+      short: p.colorway.replace(/\s*\(.*\)\s*$/, ''),
     }))
   )
   const staged = listStagedForDesign(db, Number(id))
@@ -97,7 +102,9 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                     />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={`/api/photos/${p.photo_id}`} alt={`${detail.name}, ${p.colorway}`} />
-                    <span className="mono muted">{p.caption}</span>
+                    <span className="photo-caption" title={p.colorway}>
+                      {p.short}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -139,7 +146,9 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                   <input type="radio" name="source_photo_id" value={p.photo_id} defaultChecked={i === 0} />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/photos/${p.photo_id}`} alt={`${detail.name}, ${p.colorway}`} />
-                  <span className="mono muted">{p.caption}</span>
+                  <span className="photo-caption" title={p.colorway}>
+                    {p.short}
+                  </span>
                 </label>
               ))}
             </div>
@@ -163,7 +172,7 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                   <div className="stack-sm">
                     <span className="pill pill--ok">approved</span>
                     {c.etsy_uploaded_at ? (
-                      <span className="pill pill--accent">On the Etsy listing</span>
+                      <span className="pill pill--ok">On the Etsy listing</span>
                     ) : detail.etsy_listing_id ? (
                       <ActionForm action={attachCardToEtsyAction} className="action-row">
                         <input type="hidden" name="design_id" value={detail.design_id} />
@@ -271,15 +280,19 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
               <div key={s.staged_id} className="card stack-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="staged-img" src={`/api/staged/${s.staged_id}`} alt={detail.name} />
-                <div className="meta-line mono">
+                {/* The scene is the name of a set, not a machine value, so only
+                    the cost beside it stays in mono. */}
+                <div className="staged-caption">
                   {sceneLabel(s.scene_key)}
-                  {s.cost_usd != null ? ` · $${s.cost_usd.toFixed(3)}` : ''}
+                  {s.cost_usd != null ? (
+                    <span className="mono muted"> · ${s.cost_usd.toFixed(3)}</span>
+                  ) : null}
                 </div>
                 {s.status === 'approved' && (
                   <div className="stack-sm">
                     <span className="pill pill--ok">{DESTINATION_LABELS[s.destination ?? ''] ?? s.destination}</span>
                     {s.etsy_uploaded_at ? (
-                      <span className="pill pill--accent">On the Etsy listing</span>
+                      <span className="pill pill--ok">On the Etsy listing</span>
                     ) : detail.etsy_listing_id ? (
                       <ActionForm action={attachSceneToEtsyAction} className="stack-sm">
                         <input type="hidden" name="design_id" value={detail.design_id} />

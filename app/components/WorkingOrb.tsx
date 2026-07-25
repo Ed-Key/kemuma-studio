@@ -25,13 +25,15 @@ function OrbVisual({ state, px }: { state: OrbState; px: 20 | 64 }) {
   if (reduced) {
     return <span className="orb-dot" aria-hidden="true" style={{ margin: (px - 10) / 2 }} />
   }
-  return <ThinkingOrb state={state} size={px} theme="dark" aria-hidden="true" />
+  return <ThinkingOrb state={state} size={px} theme="light" aria-hidden="true" />
 }
 
 /**
  * The signature "working" indicator. Wraps thinking-orbs' ThinkingOrb in the
  * brief's pill (orb left, verb label right) or a centered whole-card overlay.
- * Theme is pinned to dark to match the app.
+ * Theme is pinned to light: the orb draws its ink for the background it is
+ * given, and the app's ground is paper. Pinned rather than left on `auto` so a
+ * dark OS preference cannot paint a light orb onto a light page.
  */
 export default function WorkingOrb({
   label,
