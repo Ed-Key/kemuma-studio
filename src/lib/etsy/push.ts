@@ -85,7 +85,15 @@ export async function pushDraftToEtsy(
   }
 
   const quantity = detail.pieces.reduce((sum, p) => sum + p.quantity, 0)
-  const weight = Math.max(...detail.pieces.map((p) => p.weight_lb))
+  const heaviestLb = Math.max(...detail.pieces.map((p) => p.weight_lb))
+  // Etsy takes a unit alongside the number, and most of these pieces weigh a
+  // fraction of a pound, which the listing form objects to. Every real weight
+  // here is a whole number of ounces, so send ounces unless the piece happens
+  // to weigh whole pounds. Rounded up rather than to nearest: an understated
+  // parcel is a shipping surprise, an overstated one costs pennies.
+  const wholePounds = Number.isInteger(heaviestLb)
+  const weight = wholePounds ? heaviestLb : Math.ceil(heaviestLb * 16)
+  const weightUnit = wholePounds ? 'lb' : 'oz'
   const height = Math.max(...detail.pieces.map((p) => p.height_in))
   const width = Math.max(...detail.pieces.map((p) => p.width_in))
   const depth = Math.max(...detail.pieces.map((p) => p.depth_in))
@@ -123,7 +131,7 @@ export async function pushDraftToEtsy(
       shipping_profile_id: profiles[0].shipping_profile_id,
       readiness_state_id: readiness[0].readiness_state_id,
       item_weight: weight,
-      item_weight_unit: 'lb',
+      item_weight_unit: weightUnit,
       item_length: parcelLength,
       item_width: parcelWidth,
       item_height: parcelHeight,
@@ -159,7 +167,7 @@ export async function pushDraftToEtsy(
       materials: draft.materials.join(','),
       price: draft.price_usd,
       item_weight: weight,
-      item_weight_unit: 'lb',
+      item_weight_unit: weightUnit,
       item_length: parcelLength,
       item_width: parcelWidth,
       item_height: parcelHeight,

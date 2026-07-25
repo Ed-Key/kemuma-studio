@@ -230,6 +230,28 @@ describe('pushDraftToEtsy', () => {
     expect(result.warnings.join(' ')).toMatch(/estimated/i)
   })
 
+  it('sends a fraction of a pound as whole ounces, rounded up', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    // 0.4 lb is 6.4 oz. Rounding down would understate the parcel.
+    db.prepare('UPDATE pieces SET weight_lb = 0.4 WHERE design_id = ?').run(designId)
+    const gw = fakeGateway()
+    await pushDraftToEtsy(db, gw, designId, dataDir)
+    const body = (gw.createDraftListing as ReturnType<typeof vi.fn>).mock.calls[0][1]
+    expect(body.item_weight).toBe(7)
+    expect(body.item_weight_unit).toBe('oz')
+  })
+
+  it('leaves a whole number of pounds in pounds', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const gw = fakeGateway()
+    await pushDraftToEtsy(db, gw, designId, dataDir)
+    const body = (gw.createDraftListing as ReturnType<typeof vi.fn>).mock.calls[0][1]
+    expect(body.item_weight).toBe(3)
+    expect(body.item_weight_unit).toBe('lb')
+  })
+
   it('refuses to push without an approved draft', async () => {
     const { db, dataDir } = setup()
     const designId = await seed(db, dataDir, { colorways: ['blue'], approved: false })
