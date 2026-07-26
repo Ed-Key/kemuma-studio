@@ -37,6 +37,17 @@ export function videoForDesign(db: Db, designId: number): VideoRecord | null {
   return row ?? null
 }
 
+export function listVideosForDesign(db: Db, designId: number): VideoRecord[] {
+  return db
+    .prepare(`
+      SELECT v.* FROM videos v
+      JOIN pieces p ON p.piece_id = v.piece_id
+      WHERE p.design_id = ?
+      ORDER BY v.video_id ASC
+    `)
+    .all(designId) as VideoRecord[]
+}
+
 export function markVideoUploaded(db: Db, videoId: number): void {
   db.prepare("UPDATE videos SET etsy_uploaded_at = datetime('now') WHERE video_id = ?").run(videoId)
   logEvent(db, 'video.attached', { video_id: videoId })

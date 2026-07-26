@@ -1430,6 +1430,33 @@ input[type='radio'] {
   border: 1px solid var(--border-strong);
 }
 
+/* A clip sits in the same row as the stills because it is another view of the
+   same piece, but it needs a landscape frame: 56px square with controls is a
+   scrubber and no picture. */
+.thumb-clip {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.thumb-clip .thumb {
+  width: 100px;
+  height: 56px;
+  background: #000;
+}
+
+.clip-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.clip-tag--sent {
+  color: var(--ok);
+}
+
 /* ---- Draft layout ------------------------------------------------------- */
 
 .split {

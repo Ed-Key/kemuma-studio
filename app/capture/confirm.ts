@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { addPhoto, addPiece, createDesign, getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { getCatalogDb, dataDir } from '@/lib/catalog/instance'
@@ -9,6 +9,7 @@ import { confirmIntake, getIntake, type CapturedFacts } from '@/lib/catalog/inta
 import { create as createJob } from '@/lib/catalog/jobs'
 import { photoDiskPath, savePhotoFile } from '@/lib/catalog/photos-fs'
 import { addVideo } from '@/lib/catalog/videos'
+import { saveClip } from '@/lib/catalog/videos-fs'
 import { runJobOperation, type JobInput } from '@/lib/jobs/operations'
 import { startJob } from '@/lib/jobs/schedule'
 import { rankScenesForFamily } from '@/lib/staging/pick-scene'
@@ -77,9 +78,7 @@ export async function confirmCapturedAction(
     }
 
     for (const [i, src] of (JSON.parse(intake.videos_json ?? '[]') as string[]).entries()) {
-      const dest = path.join(dataDir(), 'videos', String(pieceId), `${i}${path.extname(src)}`)
-      await mkdir(path.dirname(dest), { recursive: true })
-      await writeFile(dest, await readFile(src))
+      const dest = await saveClip(src, path.join(dataDir(), 'videos', String(pieceId), String(i)))
       addVideo(db, { piece_id: pieceId, file_path: dest })
     }
 

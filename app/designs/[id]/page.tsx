@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
 import { getDesignDetail } from '@/lib/catalog/catalog'
+import { listVideosForDesign } from '@/lib/catalog/videos'
 import { addPieceAction, markPublishedAction, uploadPhotosAction } from '../actions'
 import ActionForm from '../../components/ActionForm'
 import DesignHeader from '../../components/DesignHeader'
@@ -26,6 +27,12 @@ function pieceStatusPill(status: string) {
 export default async function DesignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const detail = getDesignDetail(getCatalogDb(), Number(id))
+  const clips = new Map<number, ReturnType<typeof listVideosForDesign>>()
+  if (detail) {
+    for (const v of listVideosForDesign(getCatalogDb(), detail.design_id)) {
+      clips.set(v.piece_id, [...(clips.get(v.piece_id) ?? []), v])
+    }
+  }
   if (!detail)
     return (
       <div>
@@ -101,6 +108,26 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
                           src={`/api/photos/${ph.photo_id}`}
                           alt={`${detail.name}, ${p.colorway}`}
                         />
+                      ))}
+                      {/* A clip filmed in the garage was reaching Etsy without
+                          ever being visible here, so the only way to know one
+                          existed was to look at the live listing. */}
+                      {(clips.get(p.piece_id) ?? []).map((v) => (
+                        <span key={v.video_id} className="thumb-clip">
+                          {/* The fragment makes the browser seek before paint.
+                              Without it the element is a black rectangle until
+                              someone presses play. */}
+                          <video
+                            className="thumb"
+                            src={`/api/videos/${v.video_id}#t=0.1`}
+                            controls
+                            playsInline
+                            preload="metadata"
+                          />
+                          <span className={v.etsy_uploaded_at ? 'clip-tag clip-tag--sent' : 'clip-tag'}>
+                            {v.etsy_uploaded_at ? 'on Etsy' : 'not sent'}
+                          </span>
+                        </span>
                       ))}
                     </div>
                     <ActionForm action={uploadPhotosAction} className="row upload-row">
