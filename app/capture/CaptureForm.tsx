@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { startTransition, useActionState, useEffect, useState } from 'react'
 import { captureObjectAction } from './actions'
 import PendingObjects from './PendingObjects'
 import WorkingOrb from '../components/WorkingOrb'
@@ -39,7 +39,10 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
   // pick so choosing the same file twice still fires a change event.
   const collect = (list: FileList | null) => {
     if (!list || list.length === 0) return
-    setShots((prev) => [...prev, ...Array.from(list)])
+    // Materialise before the input is cleared: a FileList is a live view of
+    // the element's selection, so reading it later gives back nothing.
+    const added = Array.from(list)
+    setShots((prev) => [...prev, ...added])
   }
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -48,11 +51,18 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
     for (const file of shots) data.append('media', file)
     if (dimension) data.append('dimension_media', dimension)
     for (const [key, value] of Object.entries(fields)) data.append(key, value)
-    dispatch(data)
+    // Inside a transition or isPending never flips, which on a slow upload
+    // means the button stays live and a second tap files the object twice.
+    startTransition(() => dispatch(data))
   }
 
-  const set = (name: FieldName) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setFields((f) => ({ ...f, [name]: e.currentTarget.value }))
+  // The value has to be read here and not inside the updater. React calls the
+  // updater after the handler returns, by which point currentTarget is null,
+  // which threw on the first character typed into any field.
+  const set = (name: FieldName) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.currentTarget.value
+    setFields((f) => ({ ...f, [name]: value }))
+  }
 
   return (
     <>
@@ -67,8 +77,9 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
             capture="environment"
             multiple
             onChange={(e) => {
-              collect(e.currentTarget.files)
-              e.currentTarget.value = ''
+              const input = e.currentTarget
+              collect(input.files)
+              input.value = ''
             }}
           />
           <span className="capture-shoot-label">
@@ -144,8 +155,9 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
             accept="image/*"
             capture="environment"
             onChange={(e) => {
-              setDimension(e.currentTarget.files?.[0] ?? null)
-              e.currentTarget.value = ''
+              const input = e.currentTarget
+              setDimension(input.files?.[0] ?? null)
+              input.value = ''
             }}
           />
           <span>{dimension ? 'Dimension shot taken' : 'Dimension card shot'}</span>
