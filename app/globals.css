@@ -2184,6 +2184,53 @@ input[type='radio'] {
   color: var(--text-2);
 }
 
+/* The full-width variant. No outer border: the band is delimited by hairlines
+   above and below so it reads as a stratum of the page rather than an object
+   placed on it, and state is carried by ink instead of by a container. */
+.segmented--full {
+  display: flex;
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.segmented--full > * {
+  position: relative;
+  flex: 1;
+  justify-content: center;
+  padding: 13px 16px;
+  background: none;
+}
+
+/* A short centred tick rather than a full-height rule. A rule that reaches the
+   edges turns the band into two cells, which is the thing being avoided. */
+.segmented--full > * + * {
+  border-left: 0;
+}
+
+.segmented--full > * + *::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 28%;
+  bottom: 28%;
+  width: 1px;
+  background: var(--border);
+}
+
+.segmented--full > a:hover {
+  background: none;
+  color: var(--text);
+}
+
+/* Where you are is darker and a little heavier, and that is the whole signal. */
+.segmented--full > [aria-current='page'] {
+  background: none;
+  color: var(--text);
+  font-weight: 500;
+}
+
 /* Status about the design, sat with its name instead of in the row of places
    you can go. A listing id and a published flag are facts, not destinations. */
 .head-facts {
@@ -2216,4 +2263,8 @@ input[type='radio'] {
   height: 6px;
   border-radius: 50%;
   background: var(--ok);
+}
+
+.page-head .segmented--full {
+  margin-top: 18px;
 }
