@@ -44,6 +44,12 @@ export function buildMatcherSystemPrompt(): string {
     '  when not certain at high confidence, abstain.',
     '- design_id must be one of the candidate ids, or null.',
     '- evidence: one or two sentences naming the visual features that decided it.',
+    '- suggested_name and suggested_family: fill these whenever the decision is NOT "existing",',
+    '  and leave them null when it is. Name the piece the way the candidate lineup is named:',
+    '  the carved subject plus the object type ("Canoe Trinket Dish", "Lovers Embrace Figure",',
+    '  "Painted Safari Heart Dish"). No colorway in the name; colorway is a variation of a design,',
+    '  not a design. Reuse an existing family verbatim when one fits, and only invent a family when',
+    '  the object is genuinely a kind the catalog does not have yet.',
   ].join('\n')
 }
 
@@ -54,7 +60,8 @@ export function buildMatcherUserText(candidates: Array<{ design_id: number; name
   return [
     'The candidate lineup follows, one exemplar photo each, in this order:',
     lineup,
-    'After the lineup come the photos of the NEW piece. Decide: existing, new, or abstain.',
+    'After the lineup come the photos of the NEW piece. Decide: existing, new, or abstain,',
+    'and if it is not existing, propose a name and family in the lineup\'s style.',
   ].join('\n')
 }
 
@@ -97,7 +104,16 @@ export function createClaudeMatcher(): DesignMatcher {
 export async function proposeMatch(db: Db, matcher: DesignMatcher, newImagePaths: string[]): Promise<MatchProposal> {
   const candidates = loadCandidates(db)
   if (candidates.length === 0) {
-    const proposal: MatchProposal = { decision: 'new', design_id: null, confidence: 'high', evidence: 'catalog is empty' }
+    // No candidates means no model call, so there is nothing to suggest a name
+    // from. Only ever the very first piece.
+    const proposal: MatchProposal = {
+      decision: 'new',
+      design_id: null,
+      confidence: 'high',
+      evidence: 'catalog is empty',
+      suggested_name: null,
+      suggested_family: null,
+    }
     logEvent(db, 'match.proposed', { proposal, candidates: 0 })
     return proposal
   }

@@ -63,7 +63,7 @@ describe('createOpenAIMatcher', () => {
         name: 'match_proposal',
         strict: true,
         schema: {
-          required: ['decision', 'design_id', 'confidence', 'evidence'],
+          required: ['decision', 'design_id', 'confidence', 'evidence', 'suggested_name', 'suggested_family'],
           additionalProperties: false,
           properties: {
             design_id: { type: ['integer', 'null'] },
@@ -76,6 +76,9 @@ describe('createOpenAIMatcher', () => {
       design_id: 42,
       confidence: 'high',
       evidence: 'The carved silhouettes and proportions match.',
+      // A match to an existing design proposes no name; there is one already.
+      suggested_name: null,
+      suggested_family: null,
     })
   })
 

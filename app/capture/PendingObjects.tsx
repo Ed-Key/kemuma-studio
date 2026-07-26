@@ -14,6 +14,8 @@ type Pending = {
   decision: 'existing' | 'new' | 'abstain' | null
   design_id: number | null
   design_name: string | null
+  suggested_name: string | null
+  suggested_family: string | null
 }
 
 type Design = { design_id: number; name: string; family: string }
@@ -64,12 +66,23 @@ function Row({ item, designs, onDone }: { item: Pending; designs: Design[]; onDo
             {item.decision === 'new' ? 'Looks like a new design.' : 'Not sure what this is.'}
           </p>
           <label className="capture-field">
-            <span>Name it</span>
-            <input name="new_name" placeholder="Leaping Gazelle" autoComplete="off" />
+            <span>Name it{item.suggested_name ? ' (suggested)' : ''}</span>
+            <input
+              name="new_name"
+              defaultValue={item.suggested_name ?? ''}
+              placeholder="Leaping Gazelle"
+              autoComplete="off"
+            />
           </label>
           <label className="capture-field">
-            <span>Family</span>
-            <input name="new_family" list="families" placeholder="trinket dish" autoComplete="off" />
+            <span>Family{item.suggested_family ? ' (suggested)' : ''}</span>
+            <input
+              name="new_family"
+              list="families"
+              defaultValue={item.suggested_family ?? ''}
+              placeholder="trinket dish"
+              autoComplete="off"
+            />
           </label>
           <datalist id="families">
             {[...new Set(designs.map((d) => d.family))].map((f) => (

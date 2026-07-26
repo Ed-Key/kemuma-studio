@@ -24,6 +24,8 @@ export function GET() {
       decision: proposal?.decision ?? null,
       design_id: match?.design_id ?? null,
       design_name: match?.name ?? null,
+      suggested_name: proposal?.suggested_name ?? null,
+      suggested_family: proposal?.suggested_family ?? null,
     }
   })
 

@@ -12,8 +12,10 @@ const MATCH_PROPOSAL_JSON_SCHEMA = {
     design_id: { type: ['integer', 'null'] },
     confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
     evidence: { type: 'string' },
+    suggested_name: { type: ['string', 'null'] },
+    suggested_family: { type: ['string', 'null'] },
   },
-  required: ['decision', 'design_id', 'confidence', 'evidence'],
+  required: ['decision', 'design_id', 'confidence', 'evidence', 'suggested_name', 'suggested_family'],
   additionalProperties: false,
 } as const
 
