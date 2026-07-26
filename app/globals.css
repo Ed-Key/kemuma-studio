@@ -2268,3 +2268,20 @@ input[type='radio'] {
 .page-head .segmented--full {
   margin-top: 18px;
 }
+
+/* Deliberately quiet and last. Throwing away a captured object is ordinary but
+   it is never the thing you came to this screen to do. */
+.pending-discard {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  width: 100%;
+}
+
+.pending-discard:hover:not(:disabled) {
+  border-color: var(--border);
+  color: var(--danger);
+}

@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from 'react'
 import { confirmCapturedAction } from './confirm'
+import { discardCapturedAction } from './discard'
 import WorkingOrb from '../components/WorkingOrb'
 
 const POLL_MS = 2500
@@ -22,11 +23,12 @@ type Design = { design_id: number; name: string; family: string }
 
 function Row({ item, designs, onDone }: { item: Pending; designs: Design[]; onDone: () => void }) {
   const [state, action, pending] = useActionState(confirmCapturedAction, null)
+  const [binned, discard, discarding] = useActionState(discardCapturedAction, null)
   const [manual, setManual] = useState(false)
 
   useEffect(() => {
-    if (state?.ok) onDone()
-  }, [state, onDone])
+    if (state?.ok || binned?.ok) onDone()
+  }, [state, binned, onDone])
 
   // The matcher runs behind the capture response, so a freshly saved object has
   // no verdict yet. Saying so is better than showing an empty choice.
@@ -112,6 +114,15 @@ function Row({ item, designs, onDone }: { item: Pending; designs: Design[]; onDo
 
       {state && !state.ok && <p className="capture-said capture-said--bad">{state.detail ?? state.message}</p>}
       {state?.ok && <p className="capture-said capture-said--ok">{state.message}<span>{state.detail}</span></p>}
+      {binned && !binned.ok && <p className="capture-said capture-said--bad">{binned.detail ?? binned.message}</p>}
+      <button
+        type="submit"
+        formAction={discard}
+        className="pending-discard"
+        disabled={pending || discarding}
+      >
+        {discarding ? 'Discarding...' : 'Discard this object'}
+      </button>
     </form>
   )
 }
