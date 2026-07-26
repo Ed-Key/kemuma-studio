@@ -520,12 +520,84 @@ input[type='radio'] {
    it. Sync stays in the page body on purpose: its banner is where per-listing
    failures are reported, and a rail that clips and self-collapses would eat
    them. */
+/* The same band as the design page's tabs, applied to a row that holds links
+   and actions rather than places. No outer border, hairlines above and below,
+   a short tick between items, and no fills. What separates a link from an
+   action here is ink: the two that do something are darker and heavier, the
+   three that leave for Etsy stay quiet. */
 .catalog-tools {
   display: flex;
   flex-wrap: wrap;
+  width: 100%;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-top: 18px;
+}
+
+.catalog-tools > * {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.catalog-tools > * + *::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 28%;
+  bottom: 28%;
+  width: 1px;
+  background: var(--border);
+}
+
+/* Direct children only. Written loosely it also stripped the primary button
+   inside the New design panel, which is a real button and wants to look it. */
+.catalog-tools > a,
+.catalog-tools > form > button,
+.catalog-tools > details > summary {
+  flex: 1;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 16px;
+  border: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.catalog-tools > a:hover,
+.catalog-tools > form > button:hover:not(:disabled),
+.catalog-tools > details > summary:hover {
+  color: var(--text);
+  background: none;
+  text-decoration: none;
+}
+
+.catalog-tools > .tools-do > button,
+.catalog-tools > details.tools-do > summary {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Open, the form drops below the band as a panel. Letting the cell grow to the
+   full width instead pushed its own label out of the row and left the band
+   looking like it had lost a segment. */
+.catalog-tools .new-design[open] > summary {
+  background: var(--surface-2);
+}
+
+.catalog-tools .new-design > form {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 5;
+  width: min(520px, 88vw);
+  margin-top: 10px;
+  text-align: left;
 }
 
 .tool-link {
@@ -543,16 +615,6 @@ input[type='radio'] {
 
 .new-design > summary::-webkit-details-marker {
   display: none;
-}
-
-/* Open, the create form takes the whole row. Left in the right-hand cluster it
-   would be a three-field form squeezed into a button's width. */
-.new-design[open] {
-  flex: 1 1 100%;
-}
-
-.new-design[open] > summary {
-  margin-bottom: 12px;
 }
 
 /* Two short fields do not want a 1100px line each. */
