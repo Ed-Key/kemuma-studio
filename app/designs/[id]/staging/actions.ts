@@ -92,7 +92,7 @@ export async function rejectStagedAction(_prev: ActionResult | null, formData: F
     const designId = Number(formData.get('design_id'))
     const stagedId = Number(formData.get('staged_id'))
     const reason = String(formData.get('reason')) as RejectReason
-    rejectStagedImage(getCatalogDb(), stagedId, reason)
+    rejectStagedImage(getCatalogDb(), stagedId, reason, String(formData.get('note') ?? ''))
     revalidatePath(`/designs/${designId}/staging`)
     return { ok: true, message: 'Rejected.' }
   } catch (err) {

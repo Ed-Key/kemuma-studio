@@ -369,21 +369,33 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
                     </ActionForm>
                     <div>
                       <span className="field-label">Reject as</span>
-                      <div className="reject-reasons">
-                        {REJECT_REASONS.map((reason) => (
-                          <ActionForm action={rejectStagedAction} key={reason}>
-                            <input type="hidden" name="design_id" value={detail.design_id} />
-                            <input type="hidden" name="staged_id" value={s.staged_id} />
-                            <input type="hidden" name="reason" value={reason} />
+                      {/* One form with six submitters rather than six forms, so
+                          the note below can ride along with whichever is
+                          pressed. The categories are for counting; the note is
+                          for the observation none of them can hold. */}
+                      <ActionForm action={rejectStagedAction}>
+                        <input type="hidden" name="design_id" value={detail.design_id} />
+                        <input type="hidden" name="staged_id" value={s.staged_id} />
+                        <input
+                          className="reject-note"
+                          name="note"
+                          placeholder="what was wrong, if a word fits (optional)"
+                          autoComplete="off"
+                        />
+                        <div className="reject-reasons">
+                          {REJECT_REASONS.map((reason) => (
                             <button
+                              key={reason}
                               type="submit"
+                              name="reason"
+                              value={reason}
                               className={`chip-btn${reason === 'not_wanted' ? ' chip-btn--neutral' : ''}`}
                             >
                               {REJECT_LABELS[reason]}
                             </button>
-                          </ActionForm>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      </ActionForm>
                     </div>
                   </div>
                 )}

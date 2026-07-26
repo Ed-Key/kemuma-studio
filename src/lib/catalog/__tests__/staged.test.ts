@@ -77,7 +77,7 @@ describe('staged images', () => {
     expect(types).toContain('stage.approved')
     expect(types).toContain('stage.rejected')
     const rejected = events.find((e) => e.type === 'stage.rejected')
-    expect(JSON.parse(rejected!.payload)).toEqual({ staged_id: b, reason: 'not_wanted' })
+    expect(JSON.parse(rejected!.payload)).toEqual({ staged_id: b, reason: 'not_wanted', note: null })
   })
 
   it('rejects unknown reject reasons without changing the candidate', () => {
@@ -125,5 +125,52 @@ describe('staged images', () => {
     markStagedUploaded(db, a)
     expect(getStagedImage(db, a)!.etsy_uploaded_at).toBeTruthy()
     expect(listEvents(db).some((e) => e.type === 'stage.attached')).toBe(true)
+  })
+})
+
+function seedOne() {
+  const db = openDb(tempDbPath())
+  const designId = createDesign(db, { family: 'sculpture', name: 'Standing Head' })
+  const pieceId = addPiece(db, {
+    design_id: designId, colorway: 'natural', height_in: 8, width_in: 3, depth_in: 3, weight_lb: 2,
+  })
+  const photoId = addPhoto(db, { piece_id: pieceId, file_path: '/tmp/h.jpg', position: 0 })
+  return { db, designId, photoId }
+}
+
+describe('reject notes', () => {
+  it('keeps the observation the six categories cannot hold', () => {
+    const { db, designId, photoId } = seedOne()
+    const id = createStagedImage(db, {
+      design_id: designId, scene_key: 'hard-sun-wall', source_photo_id: photoId,
+      prompt: 'p', file_path: '/tmp/a.png', model: 'm', cost_usd: 0.21,
+    })
+    rejectStagedImage(db, id, 'looks_fake', '  wall shadow and cast shadow disagree about the light  ')
+    const row = getStagedImage(db, id)!
+    expect(row.reject_reason).toBe('looks_fake')
+    expect(row.reject_note).toBe('wall shadow and cast shadow disagree about the light')
+  })
+
+  it('stores no note rather than an empty one', () => {
+    const { db, designId, photoId } = seedOne()
+    const id = createStagedImage(db, {
+      design_id: designId, scene_key: 'hard-sun-wall', source_photo_id: photoId,
+      prompt: 'p', file_path: '/tmp/b.png', model: 'm', cost_usd: 0.21,
+    })
+    rejectStagedImage(db, id, 'not_wanted', '   ')
+    expect(getStagedImage(db, id)!.reject_note).toBeNull()
+  })
+
+  it('clears the note when a rejected image is later approved', () => {
+    const { db, designId, photoId } = seedOne()
+    const id = createStagedImage(db, {
+      design_id: designId, scene_key: 'hard-sun-wall', source_photo_id: photoId,
+      prompt: 'p', file_path: '/tmp/c.png', model: 'm', cost_usd: 0.21,
+    })
+    rejectStagedImage(db, id, 'looks_fake', 'shadows off')
+    approveStagedImage(db, { staged_id: id, destination: 'social' })
+    const row = getStagedImage(db, id)!
+    expect(row.reject_reason).toBeNull()
+    expect(row.reject_note).toBeNull()
   })
 })

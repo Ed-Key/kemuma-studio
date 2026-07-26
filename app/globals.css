@@ -2116,3 +2116,18 @@ input[type='radio'] {
   background: transparent;
   color: var(--text-2);
 }
+
+.reject-note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 8px;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+}
+
+.reject-note::placeholder {
+  color: var(--text-3);
+}

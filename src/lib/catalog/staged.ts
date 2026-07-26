@@ -26,6 +26,7 @@ export interface StagedImageRecord {
   status: 'candidate' | 'approved' | 'rejected'
   destination: Destination | null
   reject_reason: string | null
+  reject_note: string | null
   model: string
   cost_usd: number | null
   etsy_uploaded_at: string | null
@@ -93,7 +94,7 @@ export function approveStagedImage(db: Db, input: { staged_id: number; destinati
     throw new Error(`unknown destination "${input.destination}"`)
   }
   db.prepare(
-    "UPDATE staged_images SET status = 'approved', destination = ?, reject_reason = NULL WHERE staged_id = ?"
+    "UPDATE staged_images SET status = 'approved', destination = ?, reject_reason = NULL, reject_note = NULL WHERE staged_id = ?"
   ).run(
     input.destination,
     input.staged_id
@@ -101,14 +102,24 @@ export function approveStagedImage(db: Db, input: { staged_id: number; destinati
   logEvent(db, 'stage.approved', { staged_id: input.staged_id, destination: input.destination })
 }
 
-export function rejectStagedImage(db: Db, stagedId: number, reason: RejectReason): void {
+export function rejectStagedImage(
+  db: Db,
+  stagedId: number,
+  reason: RejectReason,
+  note?: string
+): void {
   if (!REJECT_REASONS.includes(reason)) {
     throw new Error(`unknown reject reason "${reason}"`)
   }
+  // The six categories are for counting; the note is for the observation that
+  // does not fit one, which is usually the one worth acting on. "Lighting and
+  // shadows disagree about the light source" and "looks fake" are the same
+  // category at completely different resolutions.
+  const trimmed = note?.trim() || null
   db.prepare(
-    "UPDATE staged_images SET status = 'rejected', destination = NULL, reject_reason = ? WHERE staged_id = ?"
-  ).run(reason, stagedId)
-  logEvent(db, 'stage.rejected', { staged_id: stagedId, reason })
+    "UPDATE staged_images SET status = 'rejected', destination = NULL, reject_reason = ?, reject_note = ? WHERE staged_id = ?"
+  ).run(reason, trimmed, stagedId)
+  logEvent(db, 'stage.rejected', { staged_id: stagedId, reason, note: trimmed })
 }
 
 export function listApprovedImages(db: Db): Array<StagedImageRecord & { design_name: string }> {
