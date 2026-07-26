@@ -2131,3 +2131,89 @@ input[type='radio'] {
 .reject-note::placeholder {
   color: var(--text-3);
 }
+
+/* ---- Segmented control ---------------------------------------------------
+   One object with internal dividers, rather than a row of separate boxes.
+   Navigation between places in the same thing reads as a single control; the
+   old row of bordered buttons read as five unrelated offers. */
+.segmented {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  /* Transparent, so the items read as text with dividers rather than as a row
+     of filled boxes wearing a shared outline. Only the current segment takes a
+     face, which is the whole point: one object, one place you are. */
+  background: transparent;
+}
+
+.segmented > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  font-size: 14px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* The hairline belongs between items, so the first one does not get one and the
+   group keeps a single outer edge. */
+.segmented > * + * {
+  border-left: 1px solid var(--border);
+}
+
+.segmented > a:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* Being somewhere is not an action, so the current segment takes weight and a
+   recessed face rather than the accent. */
+.segmented > [aria-current='page'] {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.segmented .tab-state {
+  color: var(--text-3);
+}
+
+.segmented > [aria-current='page'] .tab-state {
+  color: var(--text-2);
+}
+
+/* Status about the design, sat with its name instead of in the row of places
+   you can go. A listing id and a published flag are facts, not destinations. */
+.head-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.head-facts .sep {
+  color: var(--text-3);
+}
+
+.head-facts a {
+  color: var(--accent);
+}
+
+.head-fact--live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.head-fact--live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+}

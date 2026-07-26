@@ -253,15 +253,19 @@ export default function DesignsPage() {
           body because its banner carries immediate per-listing details, while
           the catalog keeps the latest failed push visible after navigation. */}
       <div className="catalog-tools">
-        <a className="tool-link" href={SHOP_URL} target="_blank" rel="noreferrer">
-          Storefront
-        </a>
-        <a className="tool-link" href={SHOP_LISTINGS_URL} target="_blank" rel="noreferrer">
-          Etsy listings
-        </a>
-        <a className="tool-link" href={SHOP_DRAFTS_URL} target="_blank" rel="noreferrer">
-          Etsy drafts
-        </a>
+        {/* Three ways to look at the same shop, so they are one control rather
+            than three loose links sitting beside two buttons. */}
+        <nav className="segmented">
+          <a href={SHOP_URL} target="_blank" rel="noreferrer">
+            Storefront
+          </a>
+          <a href={SHOP_LISTINGS_URL} target="_blank" rel="noreferrer">
+            Listings
+          </a>
+          <a href={SHOP_DRAFTS_URL} target="_blank" rel="noreferrer">
+            Drafts
+          </a>
+        </nav>
         <ActionForm action={syncEtsyStatesAction}>
           <PendingSubmit pendingLabel="Asking Etsy..." variant="ghost">
             Sync from Etsy

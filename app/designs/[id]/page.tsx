@@ -41,18 +41,18 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
         All designs
       </Link>
 
+      {/* Only the action. Whether it is published is a fact and now sits in the
+          header's facts line; showing it here as well said the same thing twice
+          in two different shapes. */}
       <DesignHeader detail={detail} current="pieces">
-        {detail.etsy_listing_id != null &&
-          (detail.published_at ? (
-            <span className="pill pill--ok">published</span>
-          ) : (
-            <ActionForm action={markPublishedAction}>
-              <PendingSubmit pendingLabel="Marking published..." variant="ghost">
-                Mark published
-              </PendingSubmit>
-              <input type="hidden" name="design_id" value={detail.design_id} />
-            </ActionForm>
-          ))}
+        {detail.etsy_listing_id != null && !detail.published_at && (
+          <ActionForm action={markPublishedAction}>
+            <PendingSubmit pendingLabel="Marking published..." variant="ghost">
+              Mark published
+            </PendingSubmit>
+            <input type="hidden" name="design_id" value={detail.design_id} />
+          </ActionForm>
+        )}
       </DesignHeader>
 
       <div className="card">

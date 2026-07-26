@@ -12,6 +12,7 @@ type DesignDetail = {
   name: string
   notes: string | null
   etsy_listing_id: number | null
+  published_at?: string | null
   pieces: Array<{ status: string }>
 }
 
@@ -36,6 +37,7 @@ export default function DesignHeader({
   const staged = listStagedForDesign(db, detail.design_id)
   const cards = listDimensionCardsForDesign(db, detail.design_id)
 
+  const published = Boolean(detail.published_at)
   const draftState = draft ? (draft.status === 'approved' ? 'approved' : 'generated') : 'none'
   const toReview =
     staged.filter((s) => s.status === 'candidate').length +
@@ -66,37 +68,44 @@ export default function DesignHeader({
     <div className="between page-head">
       <div>
         <h1>{detail.name}</h1>
-        <p className="eyebrow">
-          {detail.family}
-          {describeDesign(detail.notes) ? ` · ${describeDesign(detail.notes)}` : ''}
+        {/* Facts about the design sit with its name. They used to share the row
+            with the tabs, which put a listing id, a published flag and three
+            destinations in one line and made all five read as offers. */}
+        <p className="head-facts">
+          <span>{detail.family}</span>
+          {describeDesign(detail.notes) ? (
+            <>
+              <span className="sep">·</span>
+              <span>{describeDesign(detail.notes)}</span>
+            </>
+          ) : null}
+          <span className="sep">·</span>
+          {detail.etsy_listing_id != null ? (
+            <a href={listingEditorUrl(detail.etsy_listing_id)} target="_blank" rel="noreferrer">
+              Etsy listing {detail.etsy_listing_id}
+            </a>
+          ) : (
+            <span>not on Etsy</span>
+          )}
+          {published ? (
+            <>
+              <span className="sep">·</span>
+              <span className="head-fact--live">live</span>
+            </>
+          ) : null}
         </p>
       </div>
       <div className="row">
-        {detail.etsy_listing_id != null ? (
-          <a
-            className="pill pill--accent"
-            href={listingEditorUrl(detail.etsy_listing_id)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Etsy draft {detail.etsy_listing_id}
-          </a>
-        ) : (
-          <span className="pill pill--none muted">Not on Etsy</span>
-        )}
-        {tabs.map((t) => (
-          <Link
-            key={t.key}
-            href={t.href}
-            className="btn btn--ghost"
-            aria-current={t.key === current ? 'page' : undefined}
-          >
-            {t.label}
-            {/* "approved", "3 to review" and "none" are words about where the
-                work stands, not machine values, so they are not set in mono. */}
-            {t.state ? <span className="tab-state"> · {t.state}</span> : null}
-          </Link>
-        ))}
+        <nav className="segmented">
+          {tabs.map((t) => (
+            <Link key={t.key} href={t.href} aria-current={t.key === current ? 'page' : undefined}>
+              {t.label}
+              {/* "approved", "3 to review" and "none" are words about where the
+                  work stands, not machine values, so they are not set in mono. */}
+              {t.state ? <span className="tab-state">{t.state}</span> : null}
+            </Link>
+          ))}
+        </nav>
         {children}
       </div>
     </div>
