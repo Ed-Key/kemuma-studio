@@ -71,6 +71,10 @@ blocks and the rail shows what is running from anywhere in the app.
   jobs, and the rules that keep the rail honest about them.
 - [docs/judging-the-images.md](docs/judging-the-images.md): the six reject reasons and what
   each one indicts.
+- [docs/what-the-prompt-cannot-fix.md](docs/what-the-prompt-cannot-fix.md): two images from a
+  byte-identical prompt, one kept and one rejected, and what that rules out.
+- [docs/reports/](docs/reports/): dated outcome reports, so a prompt change can be judged by
+  a diff rather than by memory.
 
 `docs/superpowers/plans/` holds the per-step build plans and `docs/superpowers/research/`
 the landscape and image-model research behind them.
