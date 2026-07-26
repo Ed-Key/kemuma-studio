@@ -86,9 +86,17 @@ describe('agent tools', () => {
       reference_photo_ids: [photoId],
       n: 4,
     }
-    const bad = await executeAgentTool(db, ctx(), 'plan_batch', { ...good, lighting: 'soft light' })
-    expect((bad[0] as { text: string }).text).toMatch(/never composited/)
+    // Omitting a count is the only way left to fail: the lock sentences are
+    // supplied by the assembler rather than demanded from the agent.
+    const bad = await executeAgentTool(db, ctx(), 'plan_batch', {
+      ...good,
+      subject_and_count: 'The dish on its own.',
+    })
+    expect((bad[0] as { text: string }).text).toMatch(/exactly/)
     expect(getChatForDesign(db, designId)!.pending_plan_json).toBeNull()
+
+    const thin = await executeAgentTool(db, ctx(), 'plan_batch', { ...good, lighting: 'soft light' })
+    expect((thin[0] as { text: string }).text).toMatch(/plan saved/i)
 
     const ok = await executeAgentTool(db, ctx(), 'plan_batch', good)
     expect((ok[0] as { text: string }).text).toMatch(/plan saved/i)

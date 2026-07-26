@@ -9,14 +9,14 @@ export const StagingPlanSchema = z.object({
   lighting: z
     .string()
     .describe(
-      'LIGHTING AND INTEGRATION section body. Must contain the exact sentence "The product must look photographed inside this scene, never composited.", a relight instruction, and directionally consistent contact shadows.'
+      'LIGHTING AND INTEGRATION section body. Describe only this scene\'s own light: direction, quality, colour temperature, and the contact shadows that ground the piece. The mandatory "never composited, relight to the scene" sentence is added for you, so do not write it.'
     ),
   subject_and_count: z.string().describe('SUBJECT AND COUNT section body with exact counts using the word "exactly".'),
   composition: z.string().describe('COMPOSITION section body citing real dimensions for scale.'),
   product_lock: z
     .string()
     .describe(
-      'PRODUCT LOCK section body opening with "Use the exact physical product from Image 1." and ending with "Do not restyle, redraw, smooth, or symmetrize."'
+      'PRODUCT LOCK section body. Enumerate only the identity-critical features actually visible in the photo: silhouette, proportions, carving, artwork, banding, veining, colour variation, wear, asymmetries. The opening and closing lock sentences are added for you, so write only the middle.'
     ),
   extra_exclusions: z.array(z.string()).max(4),
   size: z.enum(['1536x1024', '1024x1536']),

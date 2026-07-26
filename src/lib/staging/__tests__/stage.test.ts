@@ -145,7 +145,9 @@ describe('runStaging', () => {
   })
 
   it('retries the art director once when the assembled prompt fails validation', async () => {
-    const bad: ArtDirection = { ...goodDirection, product_lock: 'Keep it the same.' }
+    // A missing count is now the only validation failure; the lock sentences
+    // are injected by the assembler.
+    const bad: ArtDirection = { ...goodDirection, subject_and_count: 'The dish alone.' }
     const director = fakeDirector([bad, goodDirection])
     const ids = await runStaging(
       db,
@@ -157,7 +159,7 @@ describe('runStaging', () => {
   })
 
   it('throws when validation still fails after the retry', async () => {
-    const bad: ArtDirection = { ...goodDirection, product_lock: 'Keep it the same.' }
+    const bad: ArtDirection = { ...goodDirection, subject_and_count: 'The dish alone.' }
     const director = fakeDirector([bad, bad])
     await expect(
       runStaging(
@@ -165,7 +167,7 @@ describe('runStaging', () => {
         { artDirector: director, fetchFn: await fakeImagesFetch(), apiKey: 'sk-test' },
         { designId, dataDir }
       )
-    ).rejects.toThrow(/PRODUCT LOCK/)
+    ).rejects.toThrow(/SUBJECT AND COUNT/)
   })
 
   it('rejects a source photo from another design', async () => {
@@ -284,10 +286,10 @@ describe('runStaging', () => {
 
   it('runPlannedBatch rejects an invalid plan', async () => {
     const pid = getDesignDetail(db, designId)!.pieces[0].photos[0].photo_id
-    const bad = { ...chatPlan(pid), lighting: 'soft light' }
+    const bad = { ...chatPlan(pid), subject_and_count: 'The dish alone.' }
     await expect(
       runPlannedBatch(db, { fetchFn: await fakeImagesFetch(), apiKey: 'sk-test' }, { designId, dataDir, plan: bad })
-    ).rejects.toThrow(/never composited/)
+    ).rejects.toThrow(/exactly/)
   })
 
   it('preset staging passes owner notes to the art director', async () => {

@@ -82,7 +82,9 @@ describe('staging agent loop', () => {
 
   it('system prompt carries the rails', () => {
     const system = buildAgentSystemPrompt()
-    expect(system).toMatch(/never composited/)
+    // The lock sentences are deliberately absent now: asking the agent to
+    // reproduce them is what the assembler took over.
+    expect(system).not.toMatch(/never composited/)
     expect(system).toMatch(/exactly/)
     expect(system).toMatch(/plan_batch/)
     expect(system).toMatch(/does not generate|never generate/i)

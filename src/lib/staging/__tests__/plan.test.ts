@@ -55,13 +55,41 @@ describe('staging plans', () => {
     expect(validatePlan(db, designId, { ...basePlan, reference_photo_ids: [photoId] })).toEqual([])
   })
 
-  it('rejects prompts missing mandatory phrases', () => {
-    const errors = validatePlan(db, designId, {
+  it('supplies the mandatory lock sentences the writer left out', () => {
+    // The writer used to be rejected for omitting fixed text it had to retype,
+    // which is where whole director turns went. Now the assembler states it.
+    const plan = {
       ...basePlan,
       reference_photo_ids: [photoId],
       lighting: 'Soft light from the left.',
+      product_lock: 'Keep the incised bands and the chipped rim.',
+    }
+    expect(validatePlan(db, designId, plan)).toEqual([])
+    const prompt = assemblePlanPrompt(plan)
+    expect(prompt).toContain('never composited')
+    expect(prompt).toContain('Use the exact physical product from Image 1.')
+    expect(prompt).toContain('Do not restyle, redraw, smooth, or symmetrize.')
+    expect(prompt).toContain('Keep the incised bands and the chipped rim.')
+  })
+
+  it('states each lock once even when the writer also wrote it', () => {
+    const prompt = assemblePlanPrompt({
+      ...basePlan,
+      reference_photo_ids: [photoId],
+      product_lock: `Use the exact physical product from Image 1. Keep the bands. Do not restyle, redraw, smooth, or symmetrize.`,
     })
-    expect(errors.join('; ')).toMatch(/never composited/)
+    expect(prompt.split('Use the exact physical product from Image 1.')).toHaveLength(2)
+    expect(prompt.split('Do not restyle, redraw, smooth, or symmetrize.')).toHaveLength(2)
+  })
+
+  it('still rejects a plan that does not state an exact count', () => {
+    // The one rule the assembler cannot supply without making it meaningless.
+    const errors = validatePlan(db, designId, {
+      ...basePlan,
+      reference_photo_ids: [photoId],
+      subject_and_count: 'The coaster set and its holder.',
+    })
+    expect(errors.join('; ')).toMatch(/exactly/)
   })
 
   it('rejects reference photos from another design and empty references', () => {

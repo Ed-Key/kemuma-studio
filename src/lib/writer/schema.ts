@@ -26,6 +26,19 @@ export function validateEtsyRules(draft: ListingDraft): string[] {
   if (capsWords.length > 0) {
     errors.push(`title must not contain all-caps words (found: ${capsWords.join(', ')})`)
   }
+  // Etsy's own limit is still 140 characters, but its April 2026 guidance asks
+  // for under 15 words and says keyword-stuffed titles are no longer rewarded.
+  // Checked here so a title in the old style cannot be approved by habit.
+  const words = draft.title.trim().split(/\s+/).filter(Boolean)
+  if (words.length >= 15) {
+    errors.push(`title should be under 15 words (found ${words.length}); lead with what the item is`)
+  }
+  const banned = ['handmade', 'perfect', 'beautiful', 'stunning', 'free shipping', 'gift for']
+  const lowered = draft.title.toLowerCase()
+  const found = banned.filter((word) => lowered.includes(word))
+  if (found.length > 0) {
+    errors.push(`title should not contain ${found.join(', ')}; that belongs in the description`)
+  }
   draft.tags.forEach((tag, i) => {
     if (tag.length < 1 || tag.length > 20) errors.push(`tag ${i + 1} ("${tag}") must be 1-20 characters`)
     if (tag !== tag.toLowerCase()) errors.push(`tag ${i + 1} ("${tag}") must be lowercase`)
