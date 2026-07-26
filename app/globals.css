@@ -2347,3 +2347,17 @@ input[type='radio'] {
   border-color: var(--border);
   color: var(--danger);
 }
+
+/* On a phone the rail is 50px of a 390px screen and overlays the page besides.
+   Garage capture is the only screen used on one, and it is the screen that
+   least wants a column of desktop navigation down its edge. */
+@media (max-width: 700px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .rail,
+  .sidebar {
+    display: none;
+  }
+}
