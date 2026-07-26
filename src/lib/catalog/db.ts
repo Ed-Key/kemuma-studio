@@ -99,6 +99,7 @@ function migrate(db: Db): void {
         CHECK (destination IN ('social', 'pinterest', 'storefront', 'storyboard')),
       reject_reason TEXT,
       reject_note TEXT,
+      prompt_version TEXT,
       model TEXT NOT NULL,
       cost_usd REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -173,6 +174,9 @@ function migrate(db: Db): void {
   }
   if (!stagedCols.includes('reject_note')) {
     db.exec('ALTER TABLE staged_images ADD COLUMN reject_note TEXT')
+  }
+  if (!stagedCols.includes('prompt_version')) {
+    db.exec('ALTER TABLE staged_images ADD COLUMN prompt_version TEXT')
   }
   const designCols = (db.prepare('PRAGMA table_info(designs)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!designCols.includes('published_at')) {

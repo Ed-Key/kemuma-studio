@@ -27,6 +27,7 @@ export interface StagedImageRecord {
   destination: Destination | null
   reject_reason: string | null
   reject_note: string | null
+  prompt_version: string | null
   model: string
   cost_usd: number | null
   etsy_uploaded_at: string | null
@@ -43,12 +44,14 @@ export function createStagedImage(
     file_path: string
     model: string
     cost_usd?: number | null
+    prompt_version?: string | null
   }
 ): number {
   const res = db
     .prepare(`
-      INSERT INTO staged_images (design_id, scene_key, source_photo_id, prompt, file_path, model, cost_usd)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO staged_images
+        (design_id, scene_key, source_photo_id, prompt, file_path, model, cost_usd, prompt_version)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       input.design_id,
@@ -57,7 +60,8 @@ export function createStagedImage(
       input.prompt,
       input.file_path,
       input.model,
-      input.cost_usd ?? null
+      input.cost_usd ?? null,
+      input.prompt_version ?? null
     )
   const id = Number(res.lastInsertRowid)
   logEvent(db, 'stage.generated', {

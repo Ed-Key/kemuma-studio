@@ -7,7 +7,7 @@ import { createStagedImage, sceneUsageForDesign } from '@/lib/catalog/staged'
 import { imageToApiBlock } from '@/lib/images/prepare'
 import { computeCostUsd } from '@/lib/writer/prices'
 import { getScene, pickScene } from './scenes'
-import { assembleStagingPrompt, validateStagingPrompt } from './prompt'
+import { assembleStagingPrompt, validateStagingPrompt, PROMPT_VERSION } from './prompt'
 import { buildDirectorUserText, buildVarianceDirectorUserText, type ArtDirector } from './direct'
 import { createOpenAIImageGenerator, prepareReference, type ImageGenerator } from './images-api'
 import { assemblePlanPrompt, validatePlan, type StagingPlan } from './plan'
@@ -91,6 +91,7 @@ export async function runStaging(
           file_path: filePath,
           model: imageGenerator.label,
           cost_usd: costPerImage,
+          prompt_version: PROMPT_VERSION,
         })
       )
     }
@@ -244,6 +245,7 @@ export async function runPlannedBatch(
         file_path: filePath,
         model: imageGenerator.label,
         cost_usd: costPerImage,
+        prompt_version: PROMPT_VERSION,
       })
     )
   }

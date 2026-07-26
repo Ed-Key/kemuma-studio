@@ -101,6 +101,16 @@ npm test -- --run
 npm run build
 ```
 
+Outcomes are measured rather than assumed:
+
+```
+npx tsx scripts/outcome-report.ts
+```
+
+That writes a dated markdown file to `docs/reports/`, committed, so a change to
+a prompt can be judged by diffing two reports rather than by remembering how
+things felt before.
+
 No separate lint step, because the build type-checks. Branch, commit and PR conventions are
 in [CONTRIBUTING.md](CONTRIBUTING.md).
 

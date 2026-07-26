@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { SceneTemplate } from './scenes'
 
 // The art director writes the product-specific sections; scenes.ts owns the
@@ -36,6 +37,16 @@ function withProductLock(lock: string): string {
   const own = lock.replace(PRODUCT_LOCK_OPEN, '').replace(PRODUCT_LOCK_CLOSE, '').trim()
   return [PRODUCT_LOCK_OPEN, own, PRODUCT_LOCK_CLOSE].filter(Boolean).join(' ')
 }
+
+/* Which version of the code-owned prompt scaffolding made an image. Derived
+   from the constants themselves, so editing any of them changes it without
+   anyone remembering to bump a number. Recorded on every generation because it
+   cannot be recovered afterwards: the model used to type these sentences and
+   the assembler now injects them, and the resulting text is identical. */
+export const PROMPT_VERSION = createHash('sha1')
+  .update([LIGHTING_LOCK, PRODUCT_LOCK_OPEN, PRODUCT_LOCK_CLOSE, ...BASE_EXCLUSIONS].join('\u0000'))
+  .digest('hex')
+  .slice(0, 7)
 
 export function assembleStagingPrompt(scene: SceneTemplate, direction: ArtDirection): string {
   const exclusions = [...direction.extra_exclusions, ...BASE_EXCLUSIONS].join(' ')
