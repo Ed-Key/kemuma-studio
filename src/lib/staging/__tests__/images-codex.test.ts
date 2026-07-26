@@ -161,3 +161,75 @@ describe('createCodexImageGenerator', () => {
     expect(defaultImageGenerator().label).toMatch(/^gpt-image-2/)
   })
 })
+
+describe('transient failures', () => {
+  /* Codex is told not to retry internally, so a network error surfaces here as
+     a run that exits without writing out.png. Roughly one batch in eight was
+     dying that way, and because the four images of a batch share a Promise.all
+     one dropped call took the whole batch with it. */
+  function flakyExecFile(failures: number, prompt: string) {
+    let calls = 0
+    return {
+      calls: () => calls,
+      fn: vi.fn(
+        (
+          _file: string,
+          _args: readonly string[],
+          options: { cwd: string },
+          callback: ExecCallback
+        ) => {
+          calls += 1
+          const failing = calls <= failures
+          void (async () => {
+            await writeFile(path.join(options.cwd, 'passed.txt'), prompt)
+            if (!failing) {
+              await sharp({
+                create: { width: 300, height: 200, channels: 3, background: { r: 1, g: 2, b: 3 } },
+              })
+                .png()
+                .toFile(path.join(options.cwd, 'out.png'))
+            }
+            callback(null, failing ? 'network error' : '', '')
+          })()
+          return undefined as never
+        }
+      ) as unknown as typeof execFile,
+    }
+  }
+
+  const input = {
+    references: [Buffer.from('reference')],
+    prompt: 'validated prompt\n',
+    size: '1536x1024',
+    n: 1,
+  }
+
+  it('tries again when Codex produces no image, and succeeds', async () => {
+    const flaky = flakyExecFile(2, input.prompt)
+    const generator = createCodexImageGenerator({ execFileFn: flaky.fn, backoffMs: 0 })
+
+    const out = await generator.generate(input)
+
+    expect(out.images).toHaveLength(1)
+    expect(flaky.calls()).toBe(3)
+  })
+
+  it('gives up after three attempts and says so', async () => {
+    const flaky = flakyExecFile(99, input.prompt)
+    const generator = createCodexImageGenerator({ execFileFn: flaky.fn, backoffMs: 0 })
+
+    await expect(generator.generate(input)).rejects.toThrow(/after 3 attempts/)
+    expect(flaky.calls()).toBe(3)
+  })
+
+  // A rewritten prompt is a decision, not a blip. Retrying it would likely
+  // reproduce the same edit and would hide that the validated text is not what
+  // reached the image model, which is the one thing this provider guarantees.
+  it('does not try again when Codex rewrote the prompt', async () => {
+    const flaky = flakyExecFile(0, 'rewritten prompt\n')
+    const generator = createCodexImageGenerator({ execFileFn: flaky.fn, backoffMs: 0 })
+
+    await expect(generator.generate(input)).rejects.toThrow(/prompt mismatch/)
+    expect(flaky.calls()).toBe(1)
+  })
+})

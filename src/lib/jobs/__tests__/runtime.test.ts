@@ -51,13 +51,23 @@ describe('job runtime', () => {
     expect(get(db, youngJob)?.status).toBe('running')
   })
 
-  it('aborts and fails a stuck live job after 15 minutes', () => {
+  it('leaves a long staging batch alone at the old fifteen minute mark', () => {
+    const jobId = queuedJob()
+    markRunning(db, jobId, new Date('2026-07-25T12:00:00.000Z'))
+    registerJob(jobId, new AbortController())
+
+    sweepStaleJobs(db, { now: new Date('2026-07-25T12:16:00.000Z') })
+
+    expect(get(db, jobId)?.status).toBe('running')
+  })
+
+  it('aborts and fails a stuck live job once it outlives every retry', () => {
     const jobId = queuedJob()
     markRunning(db, jobId, new Date('2026-07-25T12:00:00.000Z'))
     const controller = new AbortController()
     registerJob(jobId, controller)
 
-    sweepStaleJobs(db, { now: new Date('2026-07-25T12:16:00.000Z') })
+    sweepStaleJobs(db, { now: new Date('2026-07-25T12:36:00.000Z') })
 
     expect(controller.signal.aborted).toBe(true)
     expect(get(db, jobId)).toMatchObject({

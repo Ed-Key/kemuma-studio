@@ -7,7 +7,9 @@ import {
 } from '@/lib/catalog/jobs'
 import { cancelJob, runningJobIds } from './registry'
 
-const STUCK_MS = 15 * 60 * 1000
+// Has to sit above the slowest legitimate job, which is a staging batch at
+// three attempts of CODEX_TIMEOUT_MS. At 15 minutes this was killing real work.
+const STUCK_MS = 35 * 60 * 1000
 const ORPHANED_MS = 90 * 1000
 
 function ageMs(now: Date, timestamp: string): number {

@@ -10,7 +10,10 @@ import {
   type StagedImageInput,
 } from './images-api'
 
-const CODEX_TIMEOUT_MS = 20 * 60 * 1000
+// The slowest batch that ever finished took 466s for four images in parallel,
+// so no single call has a reason to run past this. Cutting it short is cheap
+// now that a timed-out attempt costs a retry rather than the batch.
+const CODEX_TIMEOUT_MS = 10 * 60 * 1000
 
 // Codex reports no token usage, so there is nothing to price with
 // computeImageCostUsd. Zero would be literally true (the subscription already
@@ -102,9 +105,20 @@ function runCodex(
   })
 }
 
-async function generateOne(
+/* Codex disobeying the prompt and the network dropping are different kinds of
+   failure and only one of them is worth trying again. A passed.txt mismatch
+   means the validated prompt was not the one used, which is the boundary this
+   provider exists to hold; retrying would launder it. A missing out.png is a
+   network error or an overloaded upstream, and retrying is the whole point. */
+class PromptFidelityError extends Error {}
+
+const ATTEMPTS = 3
+const BACKOFF_MS = 2000
+
+async function attemptOne(
   execFileFn: typeof execFile,
-  input: Omit<StagedImageInput, 'n'>
+  input: Omit<StagedImageInput, 'n'>,
+  keepOnFailure: boolean
 ): Promise<Buffer> {
   const tmp = await mkdtemp(path.join(tmpdir(), 'kemuma-codex-image-'))
   let keepForDiagnosis = false
@@ -127,13 +141,15 @@ async function generateOne(
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       keepForDiagnosis = true
-      throw new Error(
+      throw new PromptFidelityError(
         `Codex prompt mismatch: passed.txt is missing\n${unifiedDiff(expected, Buffer.alloc(0))}${context}`
       )
     }
     if (!expected.equals(passed)) {
       keepForDiagnosis = true
-      throw new Error(`Codex prompt mismatch: passed.txt differs\n${unifiedDiff(expected, passed)}${context}`)
+      throw new PromptFidelityError(
+        `Codex prompt mismatch: passed.txt differs\n${unifiedDiff(expected, passed)}${context}`
+      )
     }
 
     const [width, height] = input.size.split('x').map(Number)
@@ -143,12 +159,44 @@ async function generateOne(
         .png()
         .toBuffer()
     } catch (error) {
-      keepForDiagnosis = true
+      // Only the attempt we are not going to repeat is worth keeping. A blip
+      // that the next attempt recovers from leaves nothing behind.
+      keepForDiagnosis = keepOnFailure
       throw new Error(`Codex produced no usable out.png: ${(error as Error).message}${context}`)
     }
   } finally {
     if (!keepForDiagnosis) await rm(tmp, { recursive: true, force: true })
   }
+}
+
+/**
+ * One image, with the transient failures tried again.
+ *
+ * Roughly one staging batch in eight was dying on a network error with no
+ * retry attempted, taking the other three images of the batch down with it.
+ * Nothing was generated in those runs, so trying again costs a call and no
+ * money, while giving up costs the whole batch.
+ */
+async function generateOne(
+  execFileFn: typeof execFile,
+  input: Omit<StagedImageInput, 'n'>,
+  backoffMs: number
+): Promise<Buffer> {
+  let last: unknown
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      return await attemptOne(execFileFn, input, attempt === ATTEMPTS)
+    } catch (error) {
+      if (error instanceof PromptFidelityError) throw error
+      last = error
+      if (attempt < ATTEMPTS) await new Promise((r) => setTimeout(r, backoffMs * attempt))
+    }
+  }
+  throw new Error(
+    `Codex failed to produce an image after ${ATTEMPTS} attempts. Last error:\n${
+      last instanceof Error ? last.message : String(last)
+    }`
+  )
 }
 
 /**
@@ -158,19 +206,21 @@ async function generateOne(
  */
 export function createCodexImageGenerator(opts?: {
   execFileFn?: typeof execFile
+  backoffMs?: number
 }): ImageGenerator {
   const execFileFn = opts?.execFileFn ?? execFile
+  const backoffMs = opts?.backoffMs ?? BACKOFF_MS
   return {
     label: 'codex:image_generation',
     async generate(input) {
       if (input.references.length === 0) throw new Error('staging needs at least one reference image')
       const images = await Promise.all(
         Array.from({ length: input.n }, () =>
-          generateOne(execFileFn, {
-            references: input.references,
-            prompt: input.prompt,
-            size: input.size,
-          })
+          generateOne(
+            execFileFn,
+            { references: input.references, prompt: input.prompt, size: input.size },
+            backoffMs
+          )
         )
       )
       return {
