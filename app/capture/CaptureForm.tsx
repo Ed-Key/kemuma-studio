@@ -18,7 +18,7 @@ const EMPTY: Record<FieldName, string> = {
   height_in: '', width_in: '', depth_in: '', weight_lb: '', colorway: '', note: '',
 }
 
-export default function CaptureForm({ designNames }: { designNames: string[] }) {
+export default function CaptureForm({ colorways }: { colorways: string[] }) {
   const [state, dispatch, pending] = useActionState(captureObjectAction, null)
   const [shots, setShots] = useState<File[]>([])
   const [dimension, setDimension] = useState<File | null>(null)
@@ -122,7 +122,9 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
         </div>
 
         <label className="capture-field">
-          <span>Colorway</span>
+          <span>
+            Colorway <em>optional</em>
+          </span>
           <input
             type="text"
             list="colorways"
@@ -133,13 +135,15 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
           />
         </label>
         <datalist id="colorways">
-          {designNames.map((n) => (
+          {colorways.map((n) => (
             <option key={n} value={n} />
           ))}
         </datalist>
 
         <label className="capture-field">
-          <span>Note</span>
+          <span>
+            Note <em>optional</em>
+          </span>
           <input
             type="text"
             placeholder="chipped rim, sold as a pair"

@@ -18,7 +18,7 @@ export default function CapturePage() {
       <p className="eyebrow">
         One object at a time. Photograph it, measure it, save, next. {designs} designs catalogued so far.
       </p>
-      <CaptureForm designNames={colorways} />
+      <CaptureForm colorways={colorways} />
     </div>
   )
 }
