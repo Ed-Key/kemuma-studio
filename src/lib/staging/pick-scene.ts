@@ -20,7 +20,14 @@ import { scenesForFamily } from './scenes'
  */
 const ENOUGH_TO_JUDGE = 8
 
-export function pickSceneForFamily(db: Db, designId: number, family: string): string {
+/**
+ * Every scene for this family, best first.
+ *
+ * Scenes with a real history lead, ranked by their measured approval rate.
+ * The rest follow by how little this design has already used them, which is
+ * the only sensible order when there is nothing to rank on.
+ */
+export function rankScenesForFamily(db: Db, designId: number, family: string): string[] {
   const scenes = scenesForFamily(family)
   const keys = scenes.map((s) => s.key)
   const rows = db
@@ -40,13 +47,21 @@ export function pickSceneForFamily(db: Db, designId: number, family: string): st
     .map((key) => seen.get(key))
     .filter((r): r is { scene_key: string; approved: number; judged: number } => !!r && r.judged >= ENOUGH_TO_JUDGE)
 
-  if (judged.length > 0) {
-    return judged.sort((a, b) => b.approved / b.judged - a.approved / a.judged)[0].scene_key
-  }
+  const ranked = judged
+    .sort((a, b) => b.approved / b.judged - a.approved / a.judged)
+    .map((r) => r.scene_key)
 
   const usedHere = db
     .prepare('SELECT scene_key, COUNT(*) AS n FROM staged_images WHERE design_id = ? GROUP BY scene_key')
     .all(designId) as Array<{ scene_key: string; n: number }>
   const counts = new Map(usedHere.map((r) => [r.scene_key, r.n]))
-  return keys.sort((a, b) => (counts.get(a) ?? 0) - (counts.get(b) ?? 0))[0]
+  const rest = keys
+    .filter((k) => !ranked.includes(k))
+    .sort((a, b) => (counts.get(a) ?? 0) - (counts.get(b) ?? 0))
+
+  return [...ranked, ...rest]
+}
+
+export function pickSceneForFamily(db: Db, designId: number, family: string): string {
+  return rankScenesForFamily(db, designId, family)[0]
 }

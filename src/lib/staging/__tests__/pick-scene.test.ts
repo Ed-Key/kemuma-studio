@@ -5,7 +5,7 @@ import path from 'node:path'
 import { openDb, type Db } from '@/lib/catalog/db'
 import { addPhoto, addPiece, createDesign } from '@/lib/catalog/catalog'
 import { createStagedImage, approveStagedImage, rejectStagedImage } from '@/lib/catalog/staged'
-import { pickSceneForFamily } from '@/lib/staging/pick-scene'
+import { pickSceneForFamily, rankScenesForFamily } from '@/lib/staging/pick-scene'
 
 describe('pickSceneForFamily', () => {
   let db: Db
@@ -70,4 +70,19 @@ describe('pickSceneForFamily', () => {
     expect(typeof picked).toBe('string')
     expect(picked.length).toBeGreaterThan(0)
   })
+
+  /* A capture fires two batches off this ranking, so what matters is that the
+     second entry is a different scene from the first. Two batches on one scene
+     would buy the same failure twice. */
+  it('orders every scene for the family without repeating one', () => {
+    history('bar-cart', 15, 3)
+    history('book-stack', 6, 13)
+    const ranked = rankScenesForFamily(db, designId, 'coaster set')
+
+    expect(ranked.length).toBeGreaterThan(1)
+    expect(new Set(ranked).size).toBe(ranked.length)
+    expect(ranked[0]).toBe('bar-cart')
+    expect(ranked[1]).not.toBe('bar-cart')
+  })
+
 })

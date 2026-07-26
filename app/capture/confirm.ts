@@ -11,7 +11,7 @@ import { photoDiskPath, savePhotoFile } from '@/lib/catalog/photos-fs'
 import { addVideo } from '@/lib/catalog/videos'
 import { runJobOperation, type JobInput } from '@/lib/jobs/operations'
 import { startJob } from '@/lib/jobs/schedule'
-import { pickSceneForFamily } from '@/lib/staging/pick-scene'
+import { rankScenesForFamily } from '@/lib/staging/pick-scene'
 import type { MatchProposal } from '@/lib/matcher/schema'
 import type { ActionResult } from '../components/action-result'
 
@@ -115,25 +115,30 @@ export async function confirmCapturedAction(
       started.push('listing copy')
     }
 
-    // One batch, not two. Four images is $0.85 and enough to tell whether the
-    // scene works at all; a second batch fired blind would usually be wrong the
-    // same way as the first.
-    const sceneKey = pickSceneForFamily(db, designId, detail.family)
-    const stagingInput: JobInput = {
-      kind: 'staging_batch',
-      designId,
-      sceneKey,
-      variance: true,
+    /* Two batches on the two best scenes for this family, never twice on one.
+       A repeat of the same scene tends to fail the way the first one failed,
+       which is what made a blind second batch not worth $0.85; two different
+       scenes are two independent chances at a keeper, and the ranking is the
+       measured within-family approval rate rather than a guess at what suits
+       the piece. */
+    const scenes = rankScenesForFamily(db, designId, detail.family).slice(0, 2)
+    for (const sceneKey of scenes) {
+      const stagingInput: JobInput = {
+        kind: 'staging_batch',
+        designId,
+        sceneKey,
+        variance: true,
+      }
+      const stagingJob = createJob(db, {
+        kind: 'staging_batch',
+        design_id: designId,
+        title: `Staging · ${detail.name} · ${sceneKey}`,
+        destination: `/designs/${designId}/staging`,
+        input: stagingInput,
+      })
+      startJob(db, stagingJob, () => runJobOperation(db, stagingInput, stagingJob))
     }
-    const stagingJob = createJob(db, {
-      kind: 'staging_batch',
-      design_id: designId,
-      title: `Staging · ${detail.name}`,
-      destination: `/designs/${designId}/staging`,
-      input: stagingInput,
-    })
-    startJob(db, stagingJob, () => runJobOperation(db, stagingInput, stagingJob))
-    started.push(`staging on ${sceneKey}`)
+    started.push(`staging on ${scenes.join(' and ')}`)
 
     revalidatePath('/capture')
     revalidatePath('/designs')
