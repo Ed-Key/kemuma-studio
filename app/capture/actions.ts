@@ -37,7 +37,13 @@ export async function captureObjectAction(
 ): Promise<ActionResult> {
   try {
     const files = formData.getAll('media').filter((f): f is File => f instanceof File && f.size > 0)
-    if (files.length === 0) throw new Error('take at least one photo')
+    // Its own control rather than picking an index out of the batch: on a phone
+    // the whole-piece shot is one deliberate photograph, and choosing it from a
+    // grid of thumbnails afterwards is the fiddly kind of tap this screen is
+    // trying to avoid.
+    const dimensionShot = formData.get('dimension_media')
+    const dimension = dimensionShot instanceof File && dimensionShot.size > 0 ? dimensionShot : null
+    if (files.length === 0 && !dimension) throw new Error('take at least one photo')
 
     const facts: CapturedFacts = {
       colorway: String(formData.get('colorway') ?? '').trim() || undefined,
@@ -53,14 +59,19 @@ export async function captureObjectAction(
     await mkdir(dir, { recursive: true })
     const photos: string[] = []
     const videos: string[] = []
-    for (const [i, file] of files.entries()) {
+    const save = async (file: File, name: string) => {
       const ext = path.extname(file.name).toLowerCase()
       const isPhoto = PHOTOS.has(ext)
-      const isVideo = VIDEOS.has(ext)
-      if (!isPhoto && !isVideo) throw new Error(`unsupported file: ${file.name}`)
-      const dest = path.join(dir, `${i}${ext}`)
+      if (!isPhoto && !VIDEOS.has(ext)) throw new Error(`unsupported file: ${file.name}`)
+      const dest = path.join(dir, `${name}${ext}`)
       await writeFile(dest, Buffer.from(await file.arrayBuffer()))
       ;(isPhoto ? photos : videos).push(dest)
+      return isPhoto
+    }
+    for (const [i, file] of files.entries()) await save(file, String(i))
+    if (dimension) {
+      if (!(await save(dimension, 'dimension'))) throw new Error('the dimension shot must be a photo')
+      facts.dimension_index = photos.length - 1
     }
     if (photos.length === 0) throw new Error('at least one still photo is needed to match the design')
 

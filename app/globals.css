@@ -2018,3 +2018,71 @@ input[type='radio'] {
   font-size: 13px;
   text-align: center;
 }
+
+.capture-dimension {
+  display: grid;
+  gap: 3px;
+  place-items: center;
+  padding: 16px;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface);
+  text-align: center;
+  font-size: 15px;
+}
+
+.capture-dimension input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.pending {
+  display: grid;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+.pending-row {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.pending-what {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.pending-warn {
+  color: var(--warn);
+}
+
+.pending-ask {
+  font-family: var(--font-serif);
+  font-size: 18px;
+}
+
+.pending-alt {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  width: 100%;
+}
+
+.capture-existing {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+}

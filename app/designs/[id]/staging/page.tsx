@@ -59,8 +59,12 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
       photo_id: ph.photo_id,
       colorway: p.colorway,
       short: p.colorway.replace(/\s*\(.*\)\s*$/, ''),
+      dimension_shot: ph.dimension_shot === 1,
     }))
   )
+  // Flagged in the garage as the shot that shows the whole piece, which is what
+  // the card needs. Falls back to the first photo when nothing was flagged.
+  const cardDefault = photos.findIndex((p) => p.dimension_shot)
   const staged = listStagedForDesign(db, Number(id))
   const dimCards = listDimensionCardsForDesign(db, Number(id))
   const chat = getChatForDesign(db, Number(id))
@@ -164,11 +168,16 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
             <div className="photo-choice-row">
               {photos.map((p, i) => (
                 <label key={p.photo_id} className="photo-choice">
-                  <input type="radio" name="source_photo_id" value={p.photo_id} defaultChecked={i === 0} />
+                  <input
+                    type="radio"
+                    name="source_photo_id"
+                    value={p.photo_id}
+                    defaultChecked={cardDefault === -1 ? i === 0 : i === cardDefault}
+                  />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/api/photos/${p.photo_id}`} alt={`${detail.name}, ${p.colorway}`} />
                   <span className="photo-caption" title={p.colorway}>
-                    {p.short}
+                    {p.dimension_shot ? 'whole piece' : p.short}
                   </span>
                 </label>
               ))}

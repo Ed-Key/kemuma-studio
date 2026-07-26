@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from 'react'
 import { captureObjectAction } from './actions'
+import PendingObjects from './PendingObjects'
 import WorkingOrb from '../components/WorkingOrb'
 
 const FIELDS = [
@@ -29,6 +30,7 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
   }, [state])
 
   return (
+    <>
     <form ref={form} action={formAction} className="capture">
       <label className="capture-shoot">
         <input
@@ -71,6 +73,14 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
         <input name="note" type="text" placeholder="chipped rim, sold as a pair" autoComplete="off" />
       </label>
 
+      {/* Its own control, because the whole-piece shot is a deliberate frame and
+          picking it out of a thumbnail grid later is the tap this screen avoids. */}
+      <label className="capture-dimension">
+        <input type="file" name="dimension_media" accept="image/*" capture="environment" />
+        <span>Dimension card shot</span>
+        <span className="capture-shoot-hint">Optional. The whole piece, flat on.</span>
+      </label>
+
       <button type="submit" className="capture-next" disabled={pending}>
         {pending ? <WorkingOrb label="Saving..." state="working" /> : 'Save and next object'}
       </button>
@@ -83,9 +93,11 @@ export default function CaptureForm({ designNames }: { designNames: string[] }) 
       )}
       {saved > 0 && (
         <p className="capture-tally">
-          {saved} object{saved === 1 ? '' : 's'} captured this session. Review them on the laptop.
+          {saved} object{saved === 1 ? '' : 's'} captured this session.
         </p>
       )}
     </form>
+    <PendingObjects nudge={saved} />
+    </>
   )
 }

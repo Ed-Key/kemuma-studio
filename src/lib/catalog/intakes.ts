@@ -21,6 +21,8 @@ export interface CapturedFacts {
   weight_lb?: number
   quantity?: number
   note?: string
+  /** Index into photos_json of the shot that shows the whole piece. */
+  dimension_index?: number
 }
 
 export function createIntake(

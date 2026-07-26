@@ -118,10 +118,10 @@ export function getDesignDetail(db: Db, designId: number) {
     condition_notes: string | null
     status: string
   }>
-  const photoStmt = db.prepare('SELECT photo_id, position FROM photos WHERE piece_id = ? ORDER BY position')
+  const photoStmt = db.prepare('SELECT photo_id, position, dimension_shot FROM photos WHERE piece_id = ? ORDER BY position')
   return {
     ...design,
-    pieces: pieces.map((p) => ({ ...p, photos: photoStmt.all(p.piece_id) as Array<{ photo_id: number; position: number }> })),
+    pieces: pieces.map((p) => ({ ...p, photos: photoStmt.all(p.piece_id) as Array<{ photo_id: number; position: number; dimension_shot: number }> })),
   }
 }
 

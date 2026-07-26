@@ -42,7 +42,10 @@ function migrate(db: Db): void {
       photo_id INTEGER PRIMARY KEY,
       piece_id INTEGER NOT NULL REFERENCES pieces(piece_id),
       file_path TEXT NOT NULL,
-      position INTEGER NOT NULL DEFAULT 0
+      position INTEGER NOT NULL DEFAULT 0,
+      -- Flagged in the garage: the shot that shows the whole piece, which is
+      -- what the dimension card needs and what is easy to know while holding it.
+      dimension_shot INTEGER NOT NULL DEFAULT 0
     );
     -- Etsy carries one video per listing and a listing is a design, so a
     -- design with several filmed pieces still sends exactly one. Stored per
@@ -180,6 +183,10 @@ function migrate(db: Db): void {
   const jobCols = (db.prepare('PRAGMA table_info(jobs)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!jobCols.includes('input_json')) {
     db.exec('ALTER TABLE jobs ADD COLUMN input_json TEXT')
+  }
+  const photoCols = (db.prepare('PRAGMA table_info(photos)').all() as Array<{ name: string }>).map((c) => c.name)
+  if (!photoCols.includes('dimension_shot')) {
+    db.exec('ALTER TABLE photos ADD COLUMN dimension_shot INTEGER NOT NULL DEFAULT 0')
   }
   const intakeCols = (db.prepare('PRAGMA table_info(intakes)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!intakeCols.includes('facts_json')) {
