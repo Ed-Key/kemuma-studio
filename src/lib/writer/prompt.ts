@@ -89,10 +89,44 @@ export interface CatalogPriceRef {
   weight_lb: number | null
 }
 
+/* A price the owner changed before listing. Nothing in this shop has sold, so
+   the catalogue's own prices are asking prices justified against other asking
+   prices. These corrections are the only pricing judgement in the system that
+   came from outside the model. */
+export interface PriceCorrection {
+  name: string
+  proposed: number
+  kept: number
+}
+
+function correctionSection(corrections: PriceCorrection[]): string {
+  if (corrections.length === 0) return ''
+  const lowered = corrections.filter((c) => c.kept < c.proposed)
+  const lines = corrections.map(
+    (c) => `- ${c.name}: you proposed $${c.proposed}, the owner listed it at $${c.kept}`
+  )
+  const direction =
+    lowered.length > corrections.length / 2
+      ? `The owner lowered ${lowered.length} of those ${corrections.length}. Your prices have run high. ` +
+        'Take the low end of what the comparables support rather than the middle.'
+      : 'Read them before anchoring on the comparables above.'
+  return [
+    '',
+    'Prices the owner changed before listing:',
+    ...lines,
+    direction,
+    'Nothing in this shop has sold yet, so the catalog prices above are asking',
+    'prices, not proof of what a piece is worth. Where the owner corrected you,',
+    'the correction is the better evidence. The catalog band is not a floor: a',
+    'small or plain piece is allowed to sit well below everything listed.',
+  ].join('\n')
+}
+
 export function buildUserPrompt(
   input: WriterDesignInput,
   catalogPrices: CatalogPriceRef[] = [],
-  vocab?: import('@/lib/etsy/attribute-vocab').FamilyVocab
+  vocab?: import('@/lib/etsy/attribute-vocab').FamilyVocab,
+  corrections: PriceCorrection[] = []
 ): string {
   const pieces = input.pieces
     .map(
@@ -134,6 +168,7 @@ export function buildUserPrompt(
     'Measured pieces:',
     pieces,
     priceContext,
+    correctionSection(corrections),
     attrSection,
   ]
     .filter(Boolean)

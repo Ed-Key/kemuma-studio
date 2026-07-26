@@ -6,7 +6,7 @@ import { createDraft } from '@/lib/catalog/drafts'
 import { imageToApiBlock } from '@/lib/images/prepare'
 import { vocabForFamily } from '@/lib/etsy/attribute-vocab'
 import { ListingDraftSchema, validateEtsyRules, type ListingDraft } from './schema'
-import { buildSystemPrompt, buildUserPrompt, type CatalogPriceRef } from './prompt'
+import { buildSystemPrompt, buildUserPrompt, type CatalogPriceRef, type PriceCorrection } from './prompt'
 import { computeCostUsd } from './prices'
 
 export type ApiImageBlock = Awaited<ReturnType<typeof imageToApiBlock>>
@@ -160,6 +160,25 @@ export function createClaudeWriter(model?: string): ListingWriter {
   }
 }
 
+/* Approved drafts whose price the owner changed. Both halves are already
+   stored: generated_json is what the model proposed and final_json is what was
+   listed, so the record costs nothing to keep and has been accumulating unread
+   since the first draft. */
+export function loadPriceCorrections(db: Db, excludeDesignId: number): PriceCorrection[] {
+  return db
+    .prepare(`
+      SELECT ds.name,
+             CAST(json_extract(d.generated_json, '$.price_usd') AS REAL) AS proposed,
+             CAST(json_extract(d.final_json, '$.price_usd') AS REAL) AS kept
+      FROM drafts d
+      JOIN designs ds ON ds.design_id = d.design_id
+      WHERE d.status = 'approved' AND d.final_json IS NOT NULL AND d.design_id != ?
+        AND proposed IS NOT NULL AND kept IS NOT NULL AND proposed != kept
+      ORDER BY ABS(kept - proposed) DESC
+    `)
+    .all(excludeDesignId) as PriceCorrection[]
+}
+
 // Ed's design (2026-07-24): the writer sees what the catalog sells for AND can
 // inspect comparables' photos via the view_comparable tool before pricing.
 export function loadComparables(db: Db, excludeDesignId: number): ComparableListing[] {
@@ -220,7 +239,12 @@ export async function generateDraft(
 
   const comparables = loadComparables(db, designId)
   const system = buildSystemPrompt()
-  const user = buildUserPrompt(detail, comparables, vocabForFamily(detail.family))
+  const user = buildUserPrompt(
+    detail,
+    comparables,
+    vocabForFamily(detail.family),
+    loadPriceCorrections(db, designId)
+  )
 
   let totalIn = 0
   let totalOut = 0
