@@ -1894,3 +1894,127 @@ input[type='radio'] {
   font-size: 11px;
   line-height: 1.3;
 }
+
+/* ---- Garage capture ------------------------------------------------------
+   The one screen used on a phone, in a garage, one-handed, with dusty hands.
+   Targets are deliberately far larger than the desktop app's, and the layout
+   ignores the rail entirely. */
+.capture-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px 64px;
+}
+
+.capture {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.capture-shoot {
+  display: grid;
+  gap: 4px;
+  place-items: center;
+  padding: 34px 16px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  text-align: center;
+}
+
+.capture-shoot input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.capture-shoot-label {
+  font-family: var(--font-serif);
+  font-size: 20px;
+}
+
+.capture-shoot-hint {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.capture-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.capture-field {
+  display: grid;
+  gap: 5px;
+}
+
+.capture-field span {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.capture-field em {
+  font-style: normal;
+  color: var(--text-3);
+}
+
+/* 17px or larger, because iOS zooms the whole page when a focused input is
+   smaller and the layout never comes back. */
+.capture-field input {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  width: 100%;
+}
+
+.capture-next {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  padding: 18px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.capture-next:disabled {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+
+.capture-said {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--border);
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.capture-said span {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.capture-said--ok {
+  border-left-color: var(--ok);
+}
+
+.capture-said--bad {
+  border-left-color: var(--danger);
+}
+
+.capture-tally {
+  color: var(--text-2);
+  font-size: 13px;
+  text-align: center;
+}

@@ -55,6 +55,10 @@ function migrate(db: Db): void {
       dir TEXT NOT NULL,
       photos_json TEXT NOT NULL,
       proposal_json TEXT,
+      -- Measured at capture, in the garage, with the piece in hand. The only
+      -- moment these are cheap to get right rather than estimated later.
+      facts_json TEXT,
+      videos_json TEXT,
       status TEXT NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'confirmed')),
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -166,5 +170,12 @@ function migrate(db: Db): void {
   const jobCols = (db.prepare('PRAGMA table_info(jobs)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!jobCols.includes('input_json')) {
     db.exec('ALTER TABLE jobs ADD COLUMN input_json TEXT')
+  }
+  const intakeCols = (db.prepare('PRAGMA table_info(intakes)').all() as Array<{ name: string }>).map((c) => c.name)
+  if (!intakeCols.includes('facts_json')) {
+    db.exec('ALTER TABLE intakes ADD COLUMN facts_json TEXT')
+  }
+  if (!intakeCols.includes('videos_json')) {
+    db.exec('ALTER TABLE intakes ADD COLUMN videos_json TEXT')
   }
 }

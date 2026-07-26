@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getCatalogDb } from '@/lib/catalog/instance'
-import { getIntake } from '@/lib/catalog/intakes'
+import { getIntake, type CapturedFacts } from '@/lib/catalog/intakes'
 import { listDesigns } from '@/lib/catalog/catalog'
 import { loadCandidates } from '@/lib/matcher/match'
 import type { MatchProposal } from '@/lib/matcher/schema'
@@ -15,6 +15,9 @@ export default async function IntakeReviewPage({ params }: { params: Promise<{ i
   const intake = getIntake(db, Number(id))
   if (!intake) return <p className="empty">Intake not found.</p>
   const proposal = JSON.parse(intake.proposal_json ?? 'null') as MatchProposal | null
+  // Measured in the garage with the piece in hand. Prefilled here so the review
+  // is a confirmation rather than a second round of guessing.
+  const facts = JSON.parse(intake.facts_json ?? 'null') as CapturedFacts | null
   const designs = listDesigns(db)
   const proposedName = designs.find((d) => d.design_id === proposal?.design_id)?.name
   const exemplar = loadCandidates(db).find((c) => c.design_id === proposal?.design_id)
@@ -115,30 +118,30 @@ export default async function IntakeReviewPage({ params }: { params: Promise<{ i
             <div className="card-title">This piece</div>
             <label className="field">
               <span className="field-label">Colorway</span>
-              <input className="input" name="colorway" placeholder="gray, rose, natural" required />
+              <input className="input" name="colorway" placeholder="gray, rose, natural" defaultValue={facts?.colorway ?? ''} required />
             </label>
             <div className="grid-3">
               <label className="field">
                 <span className="field-label">Height (in)</span>
-                <input className="input input--mono" name="height_in" type="number" step="0.1" required />
+                <input className="input input--mono" name="height_in" type="number" step="0.1" defaultValue={facts?.height_in ?? ''} required />
               </label>
               <label className="field">
                 <span className="field-label">Width (in)</span>
-                <input className="input input--mono" name="width_in" type="number" step="0.1" required />
+                <input className="input input--mono" name="width_in" type="number" step="0.1" defaultValue={facts?.width_in ?? ''} required />
               </label>
               <label className="field">
                 <span className="field-label">Depth (in)</span>
-                <input className="input input--mono" name="depth_in" type="number" step="0.1" required />
+                <input className="input input--mono" name="depth_in" type="number" step="0.1" defaultValue={facts?.depth_in ?? ''} required />
               </label>
             </div>
             <div className="grid-3">
               <label className="field">
                 <span className="field-label">Weight (lb)</span>
-                <input className="input input--mono" name="weight_lb" type="number" step="0.1" required />
+                <input className="input input--mono" name="weight_lb" type="number" step="0.1" defaultValue={facts?.weight_lb ?? ''} required />
               </label>
               <label className="field">
                 <span className="field-label">Quantity</span>
-                <input className="input input--mono" name="quantity" type="number" min="1" step="1" defaultValue={1} />
+                <input className="input input--mono" name="quantity" type="number" min="1" step="1" defaultValue={facts?.quantity ?? 1} />
               </label>
             </div>
           </div>
