@@ -103,6 +103,21 @@ describe('gateway', () => {
     expect(body.has('description')).toBe(false)
   })
 
+  it('uploads a video as multipart with its file name', async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true, status: 201, text: async () => '{}' }) as unknown as Response)
+    await gatewayWith(fetchFn).uploadListingVideo(42, 9, Buffer.from('movbytes'), 'turn.mov')
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://api.etsy.com/v3/application/shops/42/listings/9/videos')
+    expect(init.method).toBe('POST')
+    const form = init.body as FormData
+    const file = form.get('video') as File
+    expect(file.name).toBe('turn.mov')
+    expect(file.type).toBe('video/quicktime')
+    // Etsy's schema names this field separately from the file part.
+    expect(form.get('name')).toBe('turn.mov')
+    expect(form.get('rank')).toBeNull()
+  })
+
   it('uploads an image as multipart with rank', async () => {
     const fetchFn = vi.fn(async () => ({ ok: true, status: 201, text: async () => '{}' }) as unknown as Response)
     await gatewayWith(fetchFn).uploadListingImage(42, 9, Buffer.from('jpegbytes'), '0.jpg', 1)

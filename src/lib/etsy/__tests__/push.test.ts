@@ -38,6 +38,7 @@ function fakeGateway(overrides: Partial<EtsyGateway> = {}): EtsyGateway {
     deleteListing: vi.fn(async () => undefined),
     updateListing: vi.fn(async () => undefined),
     uploadListingImage: vi.fn(async () => undefined),
+    uploadListingVideo: vi.fn(async () => undefined),
     updateListingInventory: vi.fn(async () => undefined),
     getPropertiesByTaxonomyId: vi.fn(async () => [
       { property_id: 505, name: 'Height', scales: [{ scale_id: 347, display_name: 'Inches' }], possible_values: [] },

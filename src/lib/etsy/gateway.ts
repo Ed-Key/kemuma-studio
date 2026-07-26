@@ -40,6 +40,7 @@ export interface EtsyGateway {
   deleteListing(listingId: number): Promise<void>
   updateListing(shopId: number, listingId: number, patch: ListingPatch): Promise<void>
   uploadListingImage(shopId: number, listingId: number, imageBytes: Buffer, filename: string, rank: number): Promise<void>
+  uploadListingVideo(shopId: number, listingId: number, videoBytes: Buffer, filename: string): Promise<void>
   updateListingInventory(listingId: number, body: InventoryBody): Promise<void>
 }
 
@@ -167,6 +168,16 @@ export function createEtsyGateway(deps: {
       form.append('image', new File([new Uint8Array(imageBytes)], filename, { type: 'image/jpeg' }))
       form.append('rank', String(rank))
       await requestMultipart<void>(`/shops/${shopId}/listings/${listingId}/images`, form)
+    },
+    // POST /shops/{shop_id}/listings/{listing_id}/videos, multipart, fields
+    // "video" and "name", scope listings_w. There is no rank: Etsy carries one
+    // video per listing, so uploading a second replaces the first.
+    uploadListingVideo: async (shopId, listingId, videoBytes, filename) => {
+      const form = new FormData()
+      const type = filename.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4'
+      form.append('video', new File([new Uint8Array(videoBytes)], filename, { type }))
+      form.append('name', filename)
+      await requestMultipart<void>(`/shops/${shopId}/listings/${listingId}/videos`, form)
     },
 
     updateListingInventory: async (listingId, body) => {
