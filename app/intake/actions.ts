@@ -6,6 +6,7 @@ import path from 'node:path'
 import { getCatalogDb, dataDir } from '@/lib/catalog/instance'
 import { addPhoto, addPiece, createDesign, logEvent } from '@/lib/catalog/catalog'
 import { createIntake, getIntake, confirmIntake } from '@/lib/catalog/intakes'
+import { addVideo } from '@/lib/catalog/videos'
 import { photoDiskPath, savePhotoFile } from '@/lib/catalog/photos-fs'
 import { proposeMatch } from '@/lib/matcher/match'
 import { defaultMatcher } from '@/lib/matcher/match-openai'
@@ -78,6 +79,14 @@ export async function confirmIntakeAction(formData: FormData) {
     const dest = photoDiskPath(dataDir(), pieceId, position, path.basename(src))
     await savePhotoFile(dest, await readFile(src))
     addPhoto(db, { piece_id: pieceId, file_path: dest, position })
+  }
+
+  const clips = JSON.parse(intake.videos_json ?? '[]') as string[]
+  for (const [i, src] of clips.entries()) {
+    const dest = path.join(dataDir(), 'videos', String(pieceId), `${i}${path.extname(src)}`)
+    await mkdir(path.dirname(dest), { recursive: true })
+    await writeFile(dest, await readFile(src))
+    addVideo(db, { piece_id: pieceId, file_path: dest })
   }
 
   confirmIntake(db, intakeId)

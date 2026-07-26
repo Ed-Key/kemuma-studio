@@ -7,6 +7,7 @@ import sharp from 'sharp'
 import { openDb, type Db } from '@/lib/catalog/db'
 import { createDesign, addPiece, addPhoto, getDesignDetail, listEvents } from '@/lib/catalog/catalog'
 import { createDraft, approveDraft } from '@/lib/catalog/drafts'
+import { addVideo } from '@/lib/catalog/videos'
 import { buildInventoryProducts, pushDraftToEtsy } from '@/lib/etsy/push'
 import type { EtsyGateway } from '@/lib/etsy/gateway'
 
@@ -251,6 +252,55 @@ describe('pushDraftToEtsy', () => {
     const body = (gw.createDraftListing as ReturnType<typeof vi.fn>).mock.calls[0][1]
     expect(body.item_weight).toBe(3)
     expect(body.item_weight_unit).toBe('lb')
+  })
+
+  it('sends one video, then never sends it again', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const pieceId = getDesignDetail(db, designId)!.pieces[0].piece_id
+    const clip = path.join(dataDir, 'turn.mov')
+    await writeFile(clip, Buffer.from('movbytes'))
+    addVideo(db, { piece_id: pieceId, file_path: clip })
+
+    const gw = fakeGateway()
+    const first = await pushDraftToEtsy(db, gw, designId, dataDir)
+    expect(first.video_uploaded).toBe(true)
+    expect(gw.uploadListingVideo).toHaveBeenCalledOnce()
+
+    // Etsy keeps one video per listing, so a re-push must not spend the upload
+    // replacing the clip with itself.
+    const second = await pushDraftToEtsy(db, gw, designId, dataDir)
+    expect(second.video_uploaded).toBe(false)
+    expect(gw.uploadListingVideo).toHaveBeenCalledOnce()
+  })
+
+  it('pushes fine when the design was never filmed', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const gw = fakeGateway()
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir)
+    expect(result.video_uploaded).toBe(false)
+    expect(gw.uploadListingVideo).not.toHaveBeenCalled()
+    expect(result.warnings).toEqual([])
+  })
+
+  it('warns rather than failing the push when the video upload breaks', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const pieceId = getDesignDetail(db, designId)!.pieces[0].piece_id
+    const clip = path.join(dataDir, 'turn.mov')
+    await writeFile(clip, Buffer.from('movbytes'))
+    addVideo(db, { piece_id: pieceId, file_path: clip })
+
+    const gw = fakeGateway({
+      uploadListingVideo: vi.fn(async () => {
+        throw new Error('video too long')
+      }),
+    })
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir)
+    expect(result.listing_id).toBe(777)
+    expect(result.video_uploaded).toBe(false)
+    expect(result.warnings.join(' ')).toMatch(/video too long/)
   })
 
   it('refuses to push without an approved draft', async () => {

@@ -9,6 +9,7 @@ import {
   setDesignEtsyListingId,
 } from '@/lib/catalog/catalog'
 import { latestDraftForDesign } from '@/lib/catalog/drafts'
+import { markVideoUploaded, videoForDesign } from '@/lib/catalog/videos'
 import { prepareImage, PREPARED_MAX_EDGE, PREPARED_QUALITY } from '@/lib/images/prepare'
 import type { EtsyGateway } from './gateway'
 import { EtsyApiError } from './gateway'
@@ -20,6 +21,7 @@ export interface PushResult {
   listing_id: number
   created: boolean
   images_uploaded: number
+  video_uploaded: boolean
   variations_set: boolean
   attributes_set: number
   taxonomy_name: string | null
@@ -175,6 +177,27 @@ export async function pushDraftToEtsy(
     })
   }
 
+  // Sent once, on both create and update, and only if this design has a clip
+  // that has not gone up. Etsy keeps one video per listing and a second upload
+  // replaces the first, so re-sending on every push would burn the upload to
+  // land in the same place.
+  let videoUploaded = false
+  const clip = videoForDesign(db, designId)
+  if (clip && !clip.etsy_uploaded_at) {
+    try {
+      await gateway.uploadListingVideo(
+        me.shop_id,
+        listingId,
+        await readFile(clip.file_path),
+        path.basename(clip.file_path)
+      )
+      markVideoUploaded(db, clip.video_id)
+      videoUploaded = true
+    } catch (err) {
+      warnings.push(`video failed to upload: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   const vocab = vocabForFamily(detail.family)
   const draftAttrs = draft as { primary_color?: string | null; secondary_color?: string | null; art_style?: string | null }
   let attributesSet = 0
@@ -260,6 +283,7 @@ export async function pushDraftToEtsy(
     listing_id: listingId,
     created,
     images_uploaded: imagesUploaded,
+    video_uploaded: videoUploaded,
     variations_set: variationsSet,
     attributes_set: attributesSet,
     taxonomy_name: node?.name ?? null,

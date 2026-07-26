@@ -98,8 +98,8 @@ export async function pushToEtsyAction(_prev: ActionResult | null, formData: For
         ? 'Created a draft listing on Etsy.'
         : 'Updated the Etsy listing. Photos are left alone on an update.',
       detail: `listing ${res.listing_id} · ${res.images_uploaded} images · ${res.attributes_set} attributes${
-        res.variations_set ? ' · variations set' : ''
-      }`,
+        res.video_uploaded ? ' · video' : ''
+      }${res.variations_set ? ' · variations set' : ''}`,
       warnings: res.warnings,
     }
   } catch (err) {

@@ -44,6 +44,16 @@ function migrate(db: Db): void {
       file_path TEXT NOT NULL,
       position INTEGER NOT NULL DEFAULT 0
     );
+    -- Etsy carries one video per listing and a listing is a design, so a
+    -- design with several filmed pieces still sends exactly one. Stored per
+    -- piece because that is where filming happens; the push picks.
+    CREATE TABLE IF NOT EXISTS videos (
+      video_id INTEGER PRIMARY KEY,
+      piece_id INTEGER NOT NULL REFERENCES pieces(piece_id),
+      file_path TEXT NOT NULL,
+      etsy_uploaded_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS events (
       event_id INTEGER PRIMARY KEY,
       ts TEXT NOT NULL DEFAULT (datetime('now')),
