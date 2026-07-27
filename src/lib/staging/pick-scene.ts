@@ -61,7 +61,3 @@ export function rankScenesForFamily(db: Db, designId: number, family: string): s
 
   return [...ranked, ...rest]
 }
-
-export function pickSceneForFamily(db: Db, designId: number, family: string): string {
-  return rankScenesForFamily(db, designId, family)[0]
-}

@@ -13,3 +13,4 @@ data/
 *.sqlite-*
 .next-build/
 tsconfig.tsbuildinfo
+next-env.d.ts

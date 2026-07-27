@@ -53,15 +53,6 @@ export function rejectDimensionCard(db: Db, cardId: number): void {
   logEvent(db, 'dimcard.rejected', { card_id: cardId })
 }
 
-export function latestApprovedCardForDesign(db: Db, designId: number): DimensionCardRecord | null {
-  const row = db
-    .prepare(
-      "SELECT * FROM dimension_cards WHERE design_id = ? AND status = 'approved' ORDER BY card_id DESC LIMIT 1"
-    )
-    .get(designId) as DimensionCardRecord | undefined
-  return row ?? null
-}
-
 export function markCardUploaded(db: Db, cardId: number): void {
   db.prepare("UPDATE dimension_cards SET etsy_uploaded_at = datetime('now') WHERE card_id = ?").run(cardId)
   logEvent(db, 'dimcard.attached', { card_id: cardId })

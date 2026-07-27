@@ -2,10 +2,12 @@
   "name": "kemuma-studio",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "NEXT_DIST_DIR=.next-build next build",
-    "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
     "handshake": "tsx scripts/handshake.ts"
@@ -14,7 +16,6 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.220",
     "@anthropic-ai/sdk": "^0.114.0",
     "better-sqlite3": "^13.0.1",
-    "dotenv": "^17.4.2",
     "next": "^15.5.21",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -27,6 +28,7 @@
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.4.2",
     "tsx": "^4.23.1",
     "typescript": "5.8.2",
     "vitest": "^4.1.10"

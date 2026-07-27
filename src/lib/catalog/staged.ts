@@ -4,6 +4,7 @@ import { logEvent } from './catalog'
 // AI-staged marketing images. Deliberately disconnected from src/lib/etsy:
 // Etsy's Creativity Standards require real photographs in listing galleries,
 // so staged images only ever ship to marketing destinations.
+// The gallery exclusion was relaxed behind a deliberate per-click owner action.
 export const DESTINATIONS = ['social', 'pinterest', 'storefront', 'storyboard'] as const
 export type Destination = (typeof DESTINATIONS)[number]
 export const REJECT_REASONS = [

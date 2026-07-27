@@ -5,9 +5,9 @@ import path from 'node:path'
 import { openDb, type Db } from '@/lib/catalog/db'
 import { addPhoto, addPiece, createDesign } from '@/lib/catalog/catalog'
 import { createStagedImage, approveStagedImage, rejectStagedImage } from '@/lib/catalog/staged'
-import { pickSceneForFamily, rankScenesForFamily } from '@/lib/staging/pick-scene'
+import { rankScenesForFamily } from '@/lib/staging/pick-scene'
 
-describe('pickSceneForFamily', () => {
+describe('rankScenesForFamily', () => {
   let db: Db
   let designId: number
   let photoId: number
@@ -35,7 +35,7 @@ describe('pickSceneForFamily', () => {
   it('spends on the scene with the best measured yield for this family', () => {
     history('bar-cart', 15, 3)
     history('book-stack', 6, 13)
-    expect(pickSceneForFamily(db, designId, 'coaster set')).toBe('bar-cart')
+    expect(rankScenesForFamily(db, designId, 'coaster set')[0]).toBe('bar-cart')
   })
 
   it('does not let another family\'s record vote', () => {
@@ -54,19 +54,19 @@ describe('pickSceneForFamily', () => {
       approveStagedImage(db, { staged_id: id, destination: 'social' })
     }
     history('bar-cart', 9, 1)
-    expect(pickSceneForFamily(db, designId, 'coaster set')).toBe('bar-cart')
+    expect(rankScenesForFamily(db, designId, 'coaster set')[0]).toBe('bar-cart')
   })
 
   it('ignores a rate built on too few judgements', () => {
     // 2 of 2 is not an 83% scene, it is two lucky images. Anything under the
     // threshold falls back to least-used rather than crowning a fluke.
     history('book-stack', 2, 0)
-    const picked = pickSceneForFamily(db, designId, 'coaster set')
+    const picked = rankScenesForFamily(db, designId, 'coaster set')[0]
     expect(picked).not.toBe('book-stack')
   })
 
   it('falls back to the least-used scene before any history exists', () => {
-    const picked = pickSceneForFamily(db, designId, 'coaster set')
+    const picked = rankScenesForFamily(db, designId, 'coaster set')[0]
     expect(typeof picked).toBe('string')
     expect(picked.length).toBeGreaterThan(0)
   })

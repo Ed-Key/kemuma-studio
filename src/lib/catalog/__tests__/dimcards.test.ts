@@ -6,7 +6,6 @@ import { openDb, type Db } from '@/lib/catalog/db'
 import { createDesign, addPiece, addPhoto, listEvents } from '@/lib/catalog/catalog'
 import {
   createDimensionCard, getDimensionCard, listDimensionCardsForDesign,
-  approveDimensionCard, rejectDimensionCard, latestApprovedCardForDesign,
   markCardUploaded,
 } from '@/lib/catalog/dimcards'
 
@@ -44,24 +43,6 @@ describe('dimension cards', () => {
     expect(listDimensionCardsForDesign(db, designId).map((c) => c.card_id)).toEqual([b, a])
     expect(getDimensionCard(db, a)).toMatchObject({ status: 'candidate', height_in: 6, width_in: 2.5 })
     expect(listEvents(db).some((e) => e.type === 'dimcard.generated')).toBe(true)
-  })
-
-  it('approve and reject with events, latest approved wins', () => {
-    const a = card()
-    const b = card()
-    approveDimensionCard(db, a)
-    approveDimensionCard(db, b)
-    rejectDimensionCard(db, a)
-    expect(getDimensionCard(db, a)?.status).toBe('rejected')
-    expect(latestApprovedCardForDesign(db, designId)?.card_id).toBe(b)
-    const types = listEvents(db).map((e) => e.type)
-    expect(types).toContain('dimcard.approved')
-    expect(types).toContain('dimcard.rejected')
-  })
-
-  it('returns null when nothing is approved', () => {
-    card()
-    expect(latestApprovedCardForDesign(db, designId)).toBeNull()
   })
 
   it('marks a card as uploaded to etsy exactly once', () => {

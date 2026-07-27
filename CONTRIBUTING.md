@@ -20,12 +20,13 @@ If a branch is doing two unrelated things, it is two branches.
 ## Commits
 
 Conventional commits, lowercase after the colon: `type(scope): subject`. The
-types in use are `feat`, `fix`, `style`, `docs`, `ci`, `chore`.
+types in use are `feat`, `fix`, `style`, `docs`, `chore`, `refactor`.
 
 Scopes name the part of the product the change lives in rather than the
-directory it touched. The ones already in the log: `staging`, `catalog`, `ui`,
-`jobs`, `rail`, `etsy`, `draft`, `writer`, `designs`, `dimcards`, `providers`,
-`plans`, `spec`, `docs`. Reuse an existing scope where one fits.
+directory it touched. The ones already in the log: `staging`, `ui`, `jobs`,
+`catalog`, `etsy`, `capture`, `rail`, `writer`, `dimcards`, `providers`, `designs`,
+`spec`, `review`, `matcher`, `evals`, `draft`, `css`. Reuse an existing scope
+where one fits.
 
 ### Subjects
 
