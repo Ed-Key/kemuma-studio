@@ -95,13 +95,12 @@ nothing in the UI.
 
 The token and cost columns are stamped at completion from the usage the
 runtime already reports (`computeCostUsd` exists in the writer). They cost
-nothing now and are the seed of the eval system later; the reference runner's
-`executionAgents` table proved this shape.
+nothing now and are the seed of the eval system later.
 
 Per-generation detail rows (one per image subprocess) hang off the job so
 the no-cap experiment produces data. Narration events go into a `job_logs`
-table, append-only, one row per observation, following the reference runner's
-`agentLogs`: `(job_id, log_type, tool_name, content, created_at)` with
+table, append-only, one row per observation:
+`(job_id, log_type, tool_name, content, created_at)` with
 `log_type` in `text | tool_use | tool_result | error`, content truncated to
 a couple of thousand characters, and tool inputs redacted before logging.
 This is richer than stuffing the shared `events` table and makes any past
@@ -124,8 +123,8 @@ stamps `started_at`, heartbeats every few seconds while running, and stamps
 ### The live registry and the stale sweep
 
 Mandatory from the first commit, because `npm run dev` restarts strand
-in-flight jobs regularly. The mechanism is stolen from the reference runner's
-heartbeat sweep, which distinguishes two different sicknesses:
+in-flight jobs regularly. The mechanism is a heartbeat sweep, which
+distinguishes two different sicknesses:
 
 - The executor keeps an in-process registry (a `Set` of running job ids,
   removed in a `finally`). The sweep compares `running` rows against the
@@ -192,11 +191,8 @@ times larger than its layout box: it reads at about 27px while the stack
 rhythm and the width of the collapsed column stay put. 15px was tried first
 and the dots fell apart. Nothing but marks at 50px; hover opens the rail as it already does
 and the marks gain names. Reduced motion inherits `WorkingOrb`'s dot
-fallback. Mock reference: the round-one artifact at
-an internal mock,
-variant B for the collapsed column and the single open-rail frame for the
-hovered state (names in the sans, timers in the mono with tabular figures,
-narration in the third text color).
+fallback. Names are set in the sans, timers in the mono with tabular
+figures, and narration in the third text color.
 
 ### Stage three: the switchboard
 
@@ -243,16 +239,15 @@ own look.
 
 ## What we studied and chose not to copy
 
-the reference runner (its author's iMessage agent, local copy in
-`~/Projects/the reference runner`) is the reference for the run-storage and
-observability design above. Two of its choices we deliberately do not
-import:
+The run-storage and observability design above is adapted from a
+local-first agent runner studied while planning this. Two of its choices
+are deliberately not imported:
 
 - Convex as the store. Its reactive queries push updates to the dashboard
   automatically, which is elegant, but Kemuma already lives in SQLite and
   one user polling every few seconds needs no push infrastructure. The
   lesson we keep is the separation: durable rows are the only truth, and
-  any push channel (his WebSocket `broadcast`) is just a hint to re-read,
+  any push channel is just a hint to re-read,
   never a second source of state.
 - The dispatcher-and-workers agent topology. Kemuma's operations are
   already well-factored single-purpose functions; they need run records,
@@ -262,8 +257,8 @@ import:
 
 The eval system, if we build it, stands on rows this plan already writes:
 `jobs` carries model, tokens, cost, duration, and outcome per run
-(the reference runner's `usageRecords` pattern, collapsed into the job row since
-every Kemuma job is one model call chain); `job_logs` makes any run
+(collapsed into the job row, since every Kemuma job is one model call
+chain); `job_logs` makes any run
 replayable step by step; `plan_batch` validator rejections are
 machine-graded failures; and the approve and reject clicks on staged
 scenes are human labels the db already stores. When an eval design is
@@ -275,13 +270,6 @@ for it, which is the point of writing these columns down now.
 - Branch, commit and PR conventions live in `CONTRIBUTING.md`. Work
   branches off `dev`, commits are conventional with the judgment calls in
   their bodies, and every change arrives as a PR into `dev`.
-- Each stage begins with a short walkthrough, before any code: what the
-  the reference runner counterpart does (file references on both sides), then what
-  changes in our port and why. The owner wants the reference architecture
-  demystified as it is ported, not just used. Stage one's walkthrough
-  pairs `the reference runner/server/heartbeat.ts` with our sweep and
-  `the reference runner/server/execution-agent.ts` (the `onText` / `onToolUse` /
-  `onToolResult` callbacks) with our executor wrapper.
 - Verification: `npm test` (vitest) and `npm run build`, plus a look in
   the browser under `npm run dev`. The stale sweep and enqueue paths
   should get real tests alongside the existing `__tests__` suites.
