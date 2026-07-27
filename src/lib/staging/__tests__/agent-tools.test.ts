@@ -104,6 +104,51 @@ describe('agent tools', () => {
     expect(stored.reference_photo_ids).toEqual([photoId])
   })
 
+
+  /* Reproduction of the loop seen in production: eight director runs rejected
+     their own plan over and over, worst case thirteen times, because nothing
+     ever told the agent to stop asking. The plan below fails the one rule a
+     writer can still fail, a subject line with no count in it. */
+  const badPlan = () => ({
+    scene: 'Photorealistic editorial product photograph on a dresser.',
+    lighting: 'Soft window light from the left with directionally consistent contact shadows.',
+    subject_and_count: 'The dish on its own.',
+    composition: 'Slightly left of center at realistic 8-inch length.',
+    product_lock: 'Banded rim, chipped edge, dark veining.',
+    extra_exclusions: [],
+    size: '1536x1024',
+    reference_photo_ids: [photoId],
+    n: 4,
+  })
+
+  it('stops inviting a retry once the plan has been rejected three times', async () => {
+    const runCtx = ctx()
+    const said = []
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      const out = await executeAgentTool(db, runCtx, 'plan_batch', badPlan())
+      said.push((out[0] as { text: string }).text)
+    }
+
+    // The first three are worth another try; after that the run is stuck and
+    // saying "call it again" is what produced the thirteen-call loop.
+    expect(said[0]).toMatch(/call plan_batch again/i)
+    expect(said[2]).toMatch(/call plan_batch again/i)
+    expect(said[3]).not.toMatch(/call plan_batch again/i)
+    expect(said[3]).toMatch(/stop calling plan_batch/i)
+    expect(said[3]).toMatch(/tell the owner/i)
+    expect(said[4]).not.toMatch(/call plan_batch again/i)
+
+    // Whatever it says, it must never quietly accept a plan that failed.
+    expect(getChatForDesign(db, designId)!.pending_plan_json).toBeNull()
+  })
+
+  it('names the rule that failed rather than only that something failed', async () => {
+    const out = await executeAgentTool(db, ctx(), 'plan_batch', badPlan())
+    const text = (out[0] as { text: string }).text
+    expect(text).toMatch(/exactly/)
+    expect(text).toMatch(/SUBJECT AND COUNT/i)
+  })
+
   it('unknown tools report an error result', async () => {
     const out = await executeAgentTool(db, ctx(), 'nope', {})
     expect((out[0] as { text: string }).text).toMatch(/unknown tool/)

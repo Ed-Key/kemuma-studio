@@ -197,6 +197,10 @@ export function get(db: Db, jobId: number): JobRecord | null {
  * Only 'tool_use' rows, which is what marks a line as written for the owner
  * rather than kept for replay. Returned as a map so the rail can ask about
  * every open job in one query instead of one per row.
+ *
+ * tool_result counts too. It is written only when a tool refused the work, and
+ * a refusal is the one thing the owner most needs on the rail: without it a
+ * looping run reads as a run that is simply taking a while.
  */
 export function latestNarration(db: Db, jobIds: number[]): Map<number, string> {
   if (jobIds.length === 0) return new Map()
@@ -206,7 +210,7 @@ export function latestNarration(db: Db, jobIds: number[]): Map<number, string> {
       SELECT job_id, content FROM job_logs
       WHERE rowid IN (
         SELECT MAX(rowid) FROM job_logs
-        WHERE job_id IN (${holes}) AND log_type = 'tool_use'
+        WHERE job_id IN (${holes}) AND log_type IN ('tool_use', 'tool_result')
         GROUP BY job_id
       )
     `)

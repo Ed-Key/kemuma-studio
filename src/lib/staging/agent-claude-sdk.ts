@@ -10,7 +10,7 @@ import { getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { appendChatMessages, getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { claudeSubscriptionEnv, type ClaudeSdkQueryFn } from '@/lib/claude-sdk'
 import { computeCostUsd } from '@/lib/writer/prices'
-import { AGENT_TOOLS, executeAgentTool } from './agent-tools'
+import { AGENT_TOOLS, executeAgentTool, PLAN_REJECTION_LIMIT, type AgentToolCtx } from './agent-tools'
 import { buildAgentSystemPrompt } from './agent'
 
 type JsonProperty = {
@@ -67,7 +67,15 @@ async function* agentPrompt(messages: ChatMessage[], userText: string) {
   }
 }
 
-function stagingMcpServer(db: Db, input: { designId: number; chatId: number }) {
+function stagingMcpServer(
+  db: Db,
+  input: { designId: number; chatId: number },
+  onStep: (step: AgentStep) => void = () => {}
+) {
+  /* One context for the whole run, not one per call. The rejection count lives
+     on it, and a fresh object per call would reset the counter every time and
+     restore the loop this exists to stop. */
+  const toolCtx: AgentToolCtx = { designId: input.designId, chatId: input.chatId }
   return createSdkMcpServer({
     name: 'kemuma-staging',
     version: '1.0.0',
@@ -77,12 +85,25 @@ function stagingMcpServer(db: Db, input: { designId: number; chatId: number }) {
         agentTool.description,
         zodShape(agentTool.input_schema as unknown as JsonObjectSchema),
         async (args) => {
-          const result = await executeAgentTool(
-            db,
-            { designId: input.designId, chatId: input.chatId },
-            agentTool.name,
-            args
-          )
+          const before = toolCtx.planRejections ?? 0
+          const result = await executeAgentTool(db, toolCtx, agentTool.name, args)
+          const after = toolCtx.planRejections ?? 0
+          if (after > before) {
+            // The refusal text leads with an instruction to the model; the rail
+            // wants the rules underneath it.
+            const said = result.find((b) => b.type === 'text')
+            const body = said && 'text' in said ? said.text : ''
+            const rules = body
+              .split('\n')
+              .filter((line) => line.startsWith('- '))
+              .map((line) => line.slice(2))
+              .join('; ')
+            onStep({
+              kind: 'rejected',
+              reason: rules || body,
+              gaveUp: after > PLAN_REJECTION_LIMIT,
+            })
+          }
           return {
             content: result.map((block) =>
               block.type === 'text'
@@ -109,6 +130,7 @@ export type AgentStep =
   | { kind: 'tool'; name: string; input: unknown }
   | { kind: 'say'; text: string }
   | { kind: 'writing'; section: string }
+  | { kind: 'rejected'; reason: string; gaveUp?: boolean }
   | { kind: 'done'; turns: number }
 
 const PLAN_SECTIONS = new Set([
@@ -220,7 +242,7 @@ export async function runAgentTurnViaClaudeSdk(
       allowDangerouslySkipPermissions: true,
       tools: [],
       allowedTools,
-      mcpServers: { staging: stagingMcpServer(db, input) },
+      mcpServers: { staging: stagingMcpServer(db, input, step) },
       // Not the same 8 as runAgentTurn's MAX_TURNS, which this was copied from.
       // There one iteration meant one model reply that could fire several tools
       // at once; here a turn is a single round trip. The mandated process is

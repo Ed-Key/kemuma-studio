@@ -13,6 +13,10 @@ export type JobStep =
   | { kind: 'say'; text: string }
   | { kind: 'writing'; section: string }
   | { kind: 'phase'; text: string }
+  /* Carries the tool result, not the tool call. The narrator otherwise only
+     ever sees calls, which is why eight looping runs recorded that the plan
+     was rejected and never once which rule did it. */
+  | { kind: 'rejected'; reason: string; gaveUp?: boolean }
   | { kind: 'done'; turns?: number }
 
 /**
@@ -54,6 +58,10 @@ export function describeStep(step: JobStep, alreadyCalled = 0): string | null {
       return step.text.trim() || null
     case 'writing':
       return PLAN_SECTIONS[step.section] ?? null
+    case 'rejected':
+      return step.gaveUp
+        ? `gave up after repeated rejections: ${step.reason}`
+        : `the plan was rejected: ${step.reason}`
     case 'say':
       // Stored, deliberately not shown. The plan's rule is tool events first:
       // the director's prose is written for the chat, and a half-formed
@@ -118,11 +126,14 @@ export function narrator(db: Db, jobId: number): (step: JobStep) => void {
         return
       }
       const seen = step.kind === 'tool' ? countToolCalls(db, jobId, step.name) : 0
+      // A rejection is the one row written from a tool result rather than a
+      // call, so it gets the log type that says so and stays out of the
+      // tool-call counts the narration reads.
       const content = describeStep(step, seen)
       if (!content) return
       appendLog(db, {
         job_id: jobId,
-        log_type: 'tool_use',
+        log_type: step.kind === 'rejected' ? 'tool_result' : 'tool_use',
         tool_name: step.kind === 'tool' ? step.name : null,
         content,
       })

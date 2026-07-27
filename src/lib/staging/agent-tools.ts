@@ -9,6 +9,16 @@ import { StagingPlanSchema, validatePlan } from './plan'
 
 export type ToolResultContent = Array<{ type: 'text'; text: string } | ApiImageBlock>
 
+/* Per-run state, so the tool can tell a first refusal from a loop. Eight
+   director runs in the catalogue rejected their own plan over and over, worst
+   case thirteen times, because every refusal ended by inviting another try and
+   nothing counted. */
+export type AgentToolCtx = { designId: number; chatId: number; planRejections?: number }
+
+/* Three is enough to fix a missing word and not enough to burn three minutes.
+   Past this the run is not converging and saying "try again" is the bug. */
+export const PLAN_REJECTION_LIMIT = 3
+
 export const AGENT_TOOLS = [
   {
     name: 'view_design',
@@ -73,7 +83,7 @@ function text(t: string): ToolResultContent {
 
 export async function executeAgentTool(
   db: Db,
-  ctx: { designId: number; chatId: number },
+  ctx: AgentToolCtx,
   name: string,
   input: unknown
 ): Promise<ToolResultContent> {
@@ -155,10 +165,20 @@ export async function executeAgentTool(
       return text('staging note saved')
     }
     case 'plan_batch': {
+      const refuse = (reasons: string[]): ToolResultContent => {
+        ctx.planRejections = (ctx.planRejections ?? 0) + 1
+        const why = reasons.map((r) => `- ${r}`).join('\n')
+        if (ctx.planRejections > PLAN_REJECTION_LIMIT) {
+          return text(
+            `plan rejected ${ctx.planRejections} times. Stop calling plan_batch and tell the owner the batch could not be planned, quoting this:\n${why}`
+          )
+        }
+        return text(`plan rejected, fix and call plan_batch again:\n${why}`)
+      }
       const parsed = StagingPlanSchema.safeParse(input)
-      if (!parsed.success) return text(`plan rejected: ${parsed.error.issues.map((i) => i.message).join('; ')}`)
+      if (!parsed.success) return refuse(parsed.error.issues.map((i) => i.message))
       const errors = validatePlan(db, ctx.designId, parsed.data)
-      if (errors.length > 0) return text(`plan rejected, fix and call plan_batch again:\n- ${errors.join('\n- ')}`)
+      if (errors.length > 0) return refuse(errors)
       setPendingPlan(db, ctx.chatId, JSON.stringify(parsed.data))
       return text('plan saved. Tell the user what you set up; they will click Generate to run it.')
     }
