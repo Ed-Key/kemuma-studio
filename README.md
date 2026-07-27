@@ -7,7 +7,11 @@ listing pushed with its attributes, colorway variations and stock.
 
 It runs one shop, daily, on real inventory and real money. 19 listings live.
 
-<!-- demo video -->
+https://github.com/user-attachments/assets/cfdf86fa-12eb-4729-8e8d-04f2754d43ea
+
+The full run with the waiting compressed: a carving photographed on a phone
+becomes a catalogued design, agents write the listing and stage product scenes,
+and it ends on the live shop. Three and a half minutes, no audio.
 
 The carvings are vintage soapstone, hand-carved by my grandfather and grandmother
 in Tabaka, Kisii, Kenya in the 1990s, and sold at
