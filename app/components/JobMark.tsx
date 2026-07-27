@@ -25,14 +25,21 @@ const SQUARE = 2
 
 /** Where a finished job comes to rest. */
 const RESTING_SHAPE: Record<string, number> = {
-  done: SQUARE,
-  failed: TRIANGLE,
-  interrupted: CIRCLE,
+  done: TRIANGLE,
+  failed: CIRCLE,
+  interrupted: SQUARE,
 }
 
-/* Playing the settle straight through would sit on the triangle for HOLD
-   seconds on the way to the square, showing the failure shape to a job that
-   succeeded. So the settle is the crossings only, holds cut out. */
+/* The morph draws its triangle pointing up. Done is the one mark the owner
+   looks for, and a triangle turned onto its side is already the universal
+   shape for a thing that ran, so the canvas is rotated a quarter turn for it.
+   The circle it folds out of is rotationally symmetric, so the turn costs the
+   settle nothing. */
+const PLAY_TURN = Math.PI / 2
+
+/* Playing the settle straight through would rest on each shape it passes for
+   HOLD seconds, so an interrupted job would sit on the done triangle on its
+   way to the square. The settle is the crossings only, holds cut out. */
 function crossings(shape: number): Array<[number, number]> {
   const legs: Array<[number, number]> = []
   for (let from = CIRCLE; from < shape; from++) {
@@ -43,7 +50,7 @@ function crossings(shape: number): Array<[number, number]> {
 
 const SETTLE_MS_PER_LEG = 460
 
-function drawFrame(canvas: HTMLCanvasElement, t: number) {
+function drawFrame(canvas: HTMLCanvasElement, t: number, turn = 0) {
   const ratio = Math.min(2, (typeof devicePixelRatio !== 'undefined' && devicePixelRatio) || 1)
   canvas.width = Math.round(SIZE * ratio)
   canvas.height = Math.round(SIZE * ratio)
@@ -52,6 +59,11 @@ function drawFrame(canvas: HTMLCanvasElement, t: number) {
   const { mode, opts } = resolvePreset('shaping', SIZE)
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
   ctx.clearRect(0, 0, SIZE, SIZE)
+  if (turn) {
+    ctx.translate(SIZE / 2, SIZE / 2)
+    ctx.rotate(turn)
+    ctx.translate(-SIZE / 2, -SIZE / 2)
+  }
   // false is the light theme: dark ink on a transparent canvas, which is what
   // the tints in globals.css then colour. `spread` widens the outline to the
   // sphere's footprint, so a column of marks keeps one rhythm instead of the
@@ -75,6 +87,7 @@ function RestingMark({
   const canvas = useRef<HTMLCanvasElement>(null)
   const reduced = useReducedMotion()
   const shape = RESTING_SHAPE[status] ?? CIRCLE
+  const turn = shape === TRIANGLE ? PLAY_TURN : 0
   const done = useRef(onSettled)
   done.current = onSettled
 
@@ -85,7 +98,7 @@ function RestingMark({
     const legs = crossings(shape)
 
     if (!settle || reduced || legs.length === 0) {
-      drawFrame(element, rest)
+      drawFrame(element, rest, turn)
       if (settle) done.current?.()
       return
     }
@@ -99,19 +112,19 @@ function RestingMark({
     const step = () => {
       const elapsed = performance.now() - started
       if (elapsed >= span) {
-        drawFrame(element, rest)
+        drawFrame(element, rest, turn)
         done.current?.()
         return
       }
       const progress = (elapsed / span) * legs.length
       const leg = legs[Math.min(legs.length - 1, Math.floor(progress))]
       const within = progress - Math.floor(progress)
-      drawFrame(element, leg[0] + (leg[1] - leg[0]) * within)
+      drawFrame(element, leg[0] + (leg[1] - leg[0]) * within, turn)
       frame = requestAnimationFrame(step)
     }
     frame = requestAnimationFrame(step)
     return () => cancelAnimationFrame(frame)
-  }, [shape, settle, reduced])
+  }, [shape, turn, settle, reduced])
 
   return <canvas ref={canvas} style={{ width: SIZE, height: SIZE, display: 'block' }} />
 
@@ -121,8 +134,9 @@ function RestingMark({
  * One mark per job, the same at 50px and open.
  *
  * A running job is the orb, animating. When it lands the dots fold into the
- * shape it landed in and stay there: a square for done, a triangle for failed,
- * and for interrupted the circle it never left. Shape carries the outcome, so
+ * shape it landed in and stay there: a play-oriented triangle for done, a
+ * square for interrupted, and for a failure the circle it never left. Shape
+ * carries the outcome, so
  * the marks stay legible with motion off and before the colour resolves; the
  * tints in globals.css say the same thing a second way.
  */
