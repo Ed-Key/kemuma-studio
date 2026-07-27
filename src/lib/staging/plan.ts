@@ -28,9 +28,13 @@ export const StagingPlanSchema = z.object({
         what: z
           .string()
           .min(1)
-          .refine((v) => !/\d/.test(v) && !/\bexactly\b/i.test(v) && !/^(an?|one|two|three)\s/i.test(v), {
+          /* Only a leading count is banned, and a count is a number followed by
+             a space. "6-inch base" and "2-piece set" are ordinary noun phrases
+             and must pass; a false rejection here starts exactly the loop this
+             field replaced. */
+          .refine((v) => !/^\s*(\d+\s|an?\s|one\s|two\s|three\s|four\s|five\s|six\s)/i.test(v) && !/\bexactly\b/i.test(v), {
             message:
-              'write a bare noun phrase only, like "soapstone holder". No numbers, no article, and never the word "exactly": the count sentence is written for you',
+              'write a bare noun phrase, like "soapstone holder". Do not start with a number or an article, and never use the word "exactly": the count sentence is written for you',
           }),
       })
     )

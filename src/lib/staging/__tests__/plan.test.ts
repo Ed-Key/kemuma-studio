@@ -142,4 +142,33 @@ describe('staging plans', () => {
     expect(parsed.success).toBe(false)
   })
 
+
+  /* The refinement on `what` exists to stop the model writing the count into
+     the noun ("exactly one cat figure"), which made the assembler double it.
+     A false rejection here would start the same loop the field replaced, so
+     the boundary is worth pinning: a leading number followed by a space is a
+     count, a leading number followed by a hyphen is a dimension. */
+  describe('the noun phrase a count carries', () => {
+    const parse = (what: string) =>
+      StagingPlanSchema.shape.counts.safeParse([{ n: 1, what }]).success
+
+    it.each([
+      'soapstone holder',
+      'coasters',
+      '6-inch base',
+      '2-piece set',
+      '12-sided die',
+      'figure-of-eight knot',
+      'three-legged stool',
+      'onesie',
+      'anemone',
+      'oneida bowl',
+    ])('accepts %j', (what) => expect(parse(what)).toBe(true))
+
+    it.each(['a dish', 'an urn', 'one cat', 'two figures', '6 coasters', 'exactly one cat'])(
+      'refuses %j',
+      (what) => expect(parse(what)).toBe(false)
+    )
+  })
+
 })
