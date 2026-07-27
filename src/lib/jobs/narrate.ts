@@ -29,7 +29,8 @@ export type JobStep =
 const PLAN_SECTIONS: Record<string, string> = {
   scene: 'writing the scene',
   lighting: 'writing the lighting',
-  subject_and_count: 'writing what is in frame',
+  counts: 'counting what is in frame',
+  arrangement: 'writing what is in frame',
   composition: 'writing the composition',
   product_lock: 'writing the product lock',
   extra_exclusions: 'writing the exclusions',

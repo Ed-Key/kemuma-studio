@@ -14,9 +14,13 @@ import { AGENT_TOOLS, executeAgentTool, PLAN_REJECTION_LIMIT, type AgentToolCtx 
 import { buildAgentSystemPrompt } from './agent'
 
 type JsonProperty = {
-  type: 'string' | 'number' | 'array'
+  type: 'string' | 'number' | 'array' | 'object'
   enum?: readonly string[]
   items?: JsonProperty
+  properties?: Record<string, JsonProperty>
+  required?: readonly string[]
+  description?: string
+  maxItems?: number
 }
 
 type JsonObjectSchema = {
@@ -24,13 +28,26 @@ type JsonObjectSchema = {
   required?: readonly string[]
 }
 
+/* Field descriptions are the only place the model is told the rules of a field,
+   and they were being dropped on the way in: every describe() in plan.ts
+   reached nothing. A writer that has not been told a list caps at four cannot
+   be blamed for sending five. */
 function zodField(schema: JsonProperty): z.ZodType {
+  const described = (t: z.ZodType) => (schema.description ? t.describe(schema.description) : t)
   if (schema.enum && schema.enum.length > 0) {
-    return z.enum(schema.enum as [string, ...string[]])
+    return described(z.enum(schema.enum as [string, ...string[]]))
   }
-  if (schema.type === 'string') return z.string()
-  if (schema.type === 'number') return z.number()
-  if (schema.type === 'array' && schema.items) return z.array(zodField(schema.items))
+  if (schema.type === 'string') return described(z.string())
+  if (schema.type === 'number') return described(z.number())
+  if (schema.type === 'array' && schema.items) {
+    const arr = z.array(zodField(schema.items))
+    return described(schema.maxItems ? arr.max(schema.maxItems) : arr)
+  }
+  // Nested objects arrived with structured counts: the plan asks for a list of
+  // {n, what} rather than a sentence, so the shape has to survive the trip.
+  if (schema.type === 'object' && schema.properties) {
+    return described(z.object(zodShape(schema as unknown as JsonObjectSchema)))
+  }
   throw new Error(`unsupported staging tool schema type "${schema.type}"`)
 }
 
@@ -136,7 +153,8 @@ export type AgentStep =
 const PLAN_SECTIONS = new Set([
   'scene',
   'lighting',
-  'subject_and_count',
+  'counts',
+  'arrangement',
   'composition',
   'product_lock',
   'extra_exclusions',

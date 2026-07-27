@@ -11,22 +11,61 @@ export const StagingPlanSchema = z.object({
     .describe(
       'LIGHTING AND INTEGRATION section body. Describe only this scene\'s own light: direction, quality, colour temperature, and the contact shadows that ground the piece. The mandatory "never composited, relight to the scene" sentence is added for you, so do not write it.'
     ),
-  subject_and_count: z.string().describe('SUBJECT AND COUNT section body with exact counts using the word "exactly".'),
+  /* Counts are data, not prose. Asking a writer to remember the literal word
+     "exactly" is the thing language models are worst at, and the catalogue has
+     eight runs that failed that check between four and thirteen times each.
+     The model supplies the fact; assemblePlanPrompt supplies the sentence, so
+     the word cannot go missing. Compound sets need the array: a coaster set is
+     one holder and six coasters, not one thing. */
+  counts: z
+    .array(
+      z.object({
+        n: z.number().int().min(1),
+        /* A bare noun phrase and nothing else. Left open, the model writes the
+           whole sentence in here and the assembler doubles it: "Show exactly 1
+           exactly one carved cat figure, appearing exactly once". Refusing
+           digits and the word itself is what teaches the shape. */
+        what: z
+          .string()
+          .min(1)
+          .refine((v) => !/\d/.test(v) && !/\bexactly\b/i.test(v) && !/^(an?|one|two|three)\s/i.test(v), {
+            message:
+              'write a bare noun phrase only, like "soapstone holder". No numbers, no article, and never the word "exactly": the count sentence is written for you',
+          }),
+      })
+    )
+    .min(1)
+    .max(4)
+    .describe(
+      'The PRODUCT only, broken into its distinct parts, and how many of each. A coaster set is [{"n":1,"what":"soapstone holder"},{"n":6,"what":"coasters"}]. Props and scenery are NOT counted here; they belong in scene. At most 4 entries.'
+    ),
+  arrangement: z
+    .string()
+    .describe('How the product sits: what faces the camera, what is stacked or fanned, and where any props sit relative to it.'),
   composition: z.string().describe('COMPOSITION section body citing real dimensions for scale.'),
   product_lock: z
     .string()
     .describe(
       'PRODUCT LOCK section body. Enumerate only the identity-critical features actually visible in the photo: silhouette, proportions, carving, artwork, banding, veining, colour variation, wear, asymmetries. The opening and closing lock sentences are added for you, so write only the middle.'
     ),
-  extra_exclusions: z.array(z.string()).max(4),
+  extra_exclusions: z.array(z.string()).max(4).describe('At most 4 extra things to ban, beyond the standard exclusions already added for you.'),
   size: z.enum(['1536x1024', '1024x1536']),
-  reference_photo_ids: z.array(z.number().int()).max(3),
+  reference_photo_ids: z.array(z.number().int()).min(1).max(3).describe('At most 3 photo ids of THIS design, best view first.'),
   n: z.number().int().min(1).max(4).default(4),
 })
 export type StagingPlan = z.infer<typeof StagingPlanSchema>
 
 // assembleStagingPrompt owns the section order and BASE_EXCLUSIONS; the plan
 // supplies a custom pseudo-scene instead of a library template.
+/** "exactly 1 soapstone holder and exactly 6 coasters" */
+export function countSentence(counts: StagingPlan['counts']): string {
+  const parts = counts.map((c) => `exactly ${c.n} ${c.what}`)
+  const list =
+    parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  const once = counts.length === 1 ? 'appearing exactly once' : 'each appearing exactly once'
+  return `Image 1 is the only product reference. Show ${list}, ${once}.`
+}
+
 export function assemblePlanPrompt(plan: StagingPlan): string {
   const pseudoScene: SceneTemplate = {
     key: 'chat',
@@ -37,7 +76,7 @@ export function assemblePlanPrompt(plan: StagingPlan): string {
     lighting: plan.lighting,
   }
   return assembleStagingPrompt(pseudoScene, {
-    subject_and_count: plan.subject_and_count,
+    subject_and_count: `${countSentence(plan.counts)} ${plan.arrangement}`.trim(),
     composition: plan.composition,
     product_lock: plan.product_lock,
     extra_exclusions: plan.extra_exclusions,

@@ -78,7 +78,8 @@ describe('agent tools', () => {
       scene: 'Photorealistic editorial product photograph on a dresser with a gold chain draped over the rim.',
       lighting:
         "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination with directionally consistent contact shadows.",
-      subject_and_count: 'Image 1 is the only product reference. Show exactly one dish, appearing exactly once.',
+      counts: [{ n: 1, what: 'dish' }],
+      arrangement: 'The dish alone, three-quarter view.',
       composition: 'Slightly left of center at realistic 8-inch length.',
       product_lock: 'Use the exact physical product from Image 1. Do not restyle, redraw, smooth, or symmetrize.',
       extra_exclusions: [],
@@ -88,11 +89,10 @@ describe('agent tools', () => {
     }
     // Omitting a count is the only way left to fail: the lock sentences are
     // supplied by the assembler rather than demanded from the agent.
-    const bad = await executeAgentTool(db, ctx(), 'plan_batch', {
-      ...good,
-      subject_and_count: 'The dish on its own.',
-    })
-    expect((bad[0] as { text: string }).text).toMatch(/exactly/)
+    // Counts are structured now, so the failure a writer can still cause is
+    // omitting them entirely rather than forgetting a word.
+    const bad = await executeAgentTool(db, ctx(), 'plan_batch', { ...good, counts: [] })
+    expect((bad[0] as { text: string }).text).toMatch(/plan rejected/i)
     expect(getChatForDesign(db, designId)!.pending_plan_json).toBeNull()
 
     const thin = await executeAgentTool(db, ctx(), 'plan_batch', { ...good, lighting: 'soft light' })
@@ -112,7 +112,8 @@ describe('agent tools', () => {
   const badPlan = () => ({
     scene: 'Photorealistic editorial product photograph on a dresser.',
     lighting: 'Soft window light from the left with directionally consistent contact shadows.',
-    subject_and_count: 'The dish on its own.',
+    counts: [],
+    arrangement: 'The dish on its own.',
     composition: 'Slightly left of center at realistic 8-inch length.',
     product_lock: 'Banded rim, chipped edge, dark veining.',
     extra_exclusions: [],
@@ -142,11 +143,12 @@ describe('agent tools', () => {
     expect(getChatForDesign(db, designId)!.pending_plan_json).toBeNull()
   })
 
-  it('names the rule that failed rather than only that something failed', async () => {
+  it('names the field that failed rather than only that something failed', async () => {
     const out = await executeAgentTool(db, ctx(), 'plan_batch', badPlan())
     const text = (out[0] as { text: string }).text
-    expect(text).toMatch(/exactly/)
-    expect(text).toMatch(/SUBJECT AND COUNT/i)
+    // Without the path this reads "expected array to have >=1 items", which
+    // does not say which of ten fields to fix.
+    expect(text).toMatch(/counts/)
   })
 
   it('unknown tools report an error result', async () => {

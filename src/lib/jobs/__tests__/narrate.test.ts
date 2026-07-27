@@ -43,7 +43,7 @@ describe('describeStep', () => {
     expect(describeStep({ kind: 'writing', section: 'product_lock' })).toBe(
       'writing the product lock'
     )
-    expect(describeStep({ kind: 'writing', section: 'subject_and_count' })).toBe(
+    expect(describeStep({ kind: 'writing', section: 'arrangement' })).toBe(
       'writing what is in frame'
     )
   })

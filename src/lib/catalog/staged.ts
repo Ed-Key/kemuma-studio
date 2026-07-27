@@ -46,13 +46,14 @@ export function createStagedImage(
     model: string
     cost_usd?: number | null
     prompt_version?: string | null
+    plan_json?: string | null
   }
 ): number {
   const res = db
     .prepare(`
       INSERT INTO staged_images
-        (design_id, scene_key, source_photo_id, prompt, file_path, model, cost_usd, prompt_version)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (design_id, scene_key, source_photo_id, prompt, file_path, model, cost_usd, prompt_version, plan_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       input.design_id,
@@ -62,7 +63,8 @@ export function createStagedImage(
       input.file_path,
       input.model,
       input.cost_usd ?? null,
-      input.prompt_version ?? null
+      input.prompt_version ?? null,
+      input.plan_json ?? null
     )
   const id = Number(res.lastInsertRowid)
   logEvent(db, 'stage.generated', {

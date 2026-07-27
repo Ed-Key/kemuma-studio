@@ -257,7 +257,8 @@ describe('runStaging', () => {
     scene: 'Photorealistic editorial product photograph on a dresser with a thin gold chain draped over the rim.',
     lighting:
       "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination with directionally consistent contact shadows on the dresser.",
-    subject_and_count: 'Image 1 is the only product reference. Show exactly one coaster set of exactly four coasters, appearing exactly once.',
+    counts: [{ n: 1, what: 'coaster holder' }, { n: 4, what: 'coasters' }],
+    arrangement: 'Holder upright with the coasters stacked inside, one face up in front.',
     composition: 'Slightly left of center at realistic 3.8-inch scale.',
     product_lock: 'Use the exact physical product from Image 1. Preserve the painted artwork. Do not restyle, redraw, smooth, or symmetrize.',
     extra_exclusions: [],
@@ -285,11 +286,13 @@ describe('runStaging', () => {
   })
 
   it('runPlannedBatch rejects an invalid plan', async () => {
+    // The count sentence is assembled now, so the failure a plan can still
+    // carry is a reference photo belonging to some other design.
     const pid = getDesignDetail(db, designId)!.pieces[0].photos[0].photo_id
-    const bad = { ...chatPlan(pid), subject_and_count: 'The dish alone.' }
+    const bad = { ...chatPlan(pid), reference_photo_ids: [pid, 4242] }
     await expect(
       runPlannedBatch(db, { fetchFn: await fakeImagesFetch(), apiKey: 'sk-test' }, { designId, dataDir, plan: bad })
-    ).rejects.toThrow(/exactly/)
+    ).rejects.toThrow(/4242/)
   })
 
   it('preset staging passes owner notes to the art director', async () => {

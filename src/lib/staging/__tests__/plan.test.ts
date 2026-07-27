@@ -15,8 +15,8 @@ const basePlan: StagingPlan = {
     'Photorealistic editorial product photograph on a light ash dresser. A thin gold figaro chain drapes over the rim of the dish with a pair of silver earrings inside; both are jewelry props, clearly not carved stone.',
   lighting:
     "The product must look photographed inside this scene, never composited. Relight it fully to the scene's illumination: soft warm window light from camera left, matching color temperature. Ground it with directionally consistent contact shadows on the dresser and a faint warm bounce onto its base.",
-  subject_and_count:
-    'Image 1 is the only product reference. Show exactly one carved canoe-shaped dish, appearing exactly once.',
+  counts: [{ n: 1, what: 'carved canoe-shaped dish' }],
+  arrangement: 'The dish alone, three-quarter view, nothing else carved in frame.',
   composition: 'The dish sits slightly left of center at realistic 8-inch length, three-quarter view, generous negative space.',
   product_lock:
     'Use the exact physical product from Image 1. Preserve the canoe silhouette, looped handle, etched panels, and maroon tones. Do not restyle, redraw, smooth, or symmetrize.',
@@ -83,13 +83,13 @@ describe('staging plans', () => {
   })
 
   it('still rejects a plan that does not state an exact count', () => {
-    // The one rule the assembler cannot supply without making it meaningless.
+    // The count sentence is assembled now, so a writer can no longer drop it.
+    // What it can still do is name a photo that belongs to another design.
     const errors = validatePlan(db, designId, {
       ...basePlan,
-      reference_photo_ids: [photoId],
-      subject_and_count: 'The coaster set and its holder.',
+      reference_photo_ids: [photoId, 9999],
     })
-    expect(errors.join('; ')).toMatch(/exactly/)
+    expect(errors.join('; ')).toMatch(/9999/)
   })
 
   it('rejects reference photos from another design and empty references', () => {
@@ -105,4 +105,41 @@ describe('staging plans', () => {
       /at least one reference photo/
     )
   })
+
+  /* The old shape asked the writer for a sentence and then checked the sentence
+     contained the word "exactly". Eight runs in the catalogue failed that check
+     between four and thirteen times each, because remembering a literal string
+     is the thing language models are worst at. The count is data now, and the
+     assembler owns the wording, so the word cannot go missing. */
+  it('writes the count sentence from the numbers rather than trusting prose', () => {
+    const prompt = assemblePlanPrompt({
+      scene: 'On a walnut side table in evening light.',
+      lighting: 'Warm lamp just off frame, raking from the left.',
+      counts: [
+        { n: 1, what: 'soapstone holder' },
+        { n: 6, what: 'coasters' },
+      ],
+      arrangement: 'Holder upright with four coasters inside and two fanned in front.',
+      composition: 'Centred at its real 3 inch height.',
+      product_lock: 'Incised banding, chipped rim, dark veining.',
+      extra_exclusions: [],
+      size: '1536x1024',
+      reference_photo_ids: [1],
+      n: 4,
+    })
+
+    expect(prompt).toMatch(/exactly 1 soapstone holder/)
+    expect(prompt).toMatch(/exactly 6 coasters/)
+    expect(prompt).toMatch(/Holder upright with four coasters inside/)
+  })
+
+  it('refuses a plan with no counts at all, at parse time', () => {
+    const parsed = StagingPlanSchema.safeParse({
+      scene: 'x', lighting: 'y', counts: [], arrangement: 'z',
+      composition: 'c', product_lock: 'p', extra_exclusions: [],
+      size: '1536x1024', reference_photo_ids: [1], n: 4,
+    })
+    expect(parsed.success).toBe(false)
+  })
+
 })
