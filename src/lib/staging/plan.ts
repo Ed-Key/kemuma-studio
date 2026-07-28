@@ -66,8 +66,41 @@ export function countSentence(counts: StagingPlan['counts']): string {
   const parts = counts.map((c) => `exactly ${c.n} ${c.what}`)
   const list =
     parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
-  const once = counts.length === 1 ? 'appearing exactly once' : 'each appearing exactly once'
+  // "each" turns on the number of objects, not the number of entries. One entry
+  // for six coasters still describes six things, and "6 coasters appearing
+  // exactly once" reads as the six of them turning up once between them, which
+  // is the ambiguity the whole field exists to remove.
+  const several = counts.length > 1 || counts.some((c) => c.n > 1)
+  const once = several ? 'each appearing exactly once' : 'appearing exactly once'
   return `Image 1 is the only product reference. Show ${list}, ${once}.`
+}
+
+/**
+ * A stored plan, read back.
+ *
+ * Plans written before counts replaced the free-text subject line are still
+ * sitting in staging_chats, and the card that offers Generate only reads scene
+ * and n, so they render as ordinary plans and fail on the click. Their counts
+ * cannot be recovered from the prose without guessing at it, and guessing is
+ * what this change removed, so a stale plan is retired in words the owner can
+ * act on rather than parsed harder.
+ */
+export function parsePendingPlan(
+  json: string
+): { ok: true; plan: StagingPlan } | { ok: false; reason: string } {
+  const stale = {
+    ok: false as const,
+    reason:
+      'This plan was written before the staging director started counting pieces separately, so it can no longer be generated. Ask the director to plan again.',
+  }
+  let raw: unknown
+  try {
+    raw = JSON.parse(json)
+  } catch {
+    return stale
+  }
+  const parsed = StagingPlanSchema.safeParse(raw)
+  return parsed.success ? { ok: true, plan: parsed.data } : stale
 }
 
 export function assemblePlanPrompt(plan: StagingPlan): string {

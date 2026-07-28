@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { openDb, type Db } from '@/lib/catalog/db'
 import { createDesign, addPiece, addPhoto } from '@/lib/catalog/catalog'
-import { StagingPlanSchema, assemblePlanPrompt, validatePlan, type StagingPlan } from '@/lib/staging/plan'
+import {
+  StagingPlanSchema,
+  assemblePlanPrompt,
+  countSentence,
+  parsePendingPlan,
+  validatePlan,
+  type StagingPlan,
+} from '@/lib/staging/plan'
 
 function tempDbPath(): string {
   return path.join(mkdtempSync(path.join(tmpdir(), 'kemuma-plan-')), 'catalog.sqlite')
@@ -80,16 +87,6 @@ describe('staging plans', () => {
     })
     expect(prompt.split('Use the exact physical product from Image 1.')).toHaveLength(2)
     expect(prompt.split('Do not restyle, redraw, smooth, or symmetrize.')).toHaveLength(2)
-  })
-
-  it('still rejects a plan that does not state an exact count', () => {
-    // The count sentence is assembled now, so a writer can no longer drop it.
-    // What it can still do is name a photo that belongs to another design.
-    const errors = validatePlan(db, designId, {
-      ...basePlan,
-      reference_photo_ids: [photoId, 9999],
-    })
-    expect(errors.join('; ')).toMatch(/9999/)
   })
 
   it('rejects reference photos from another design and empty references', () => {
@@ -171,4 +168,69 @@ describe('staging plans', () => {
     )
   })
 
+  /* "Show exactly 6 coasters, appearing exactly once" reads as though the six
+     of them turn up once between them, which is the ambiguity this whole field
+     exists to remove. The singular was picked from the number of entries in the
+     list rather than the number of objects the list describes. */
+  describe('the count sentence', () => {
+    it('says each when one entry counts several objects', () => {
+      expect(countSentence([{ n: 6, what: 'coasters' }])).toMatch(/each appearing exactly once/)
+    })
+
+    it('stays singular when the plan describes a single object', () => {
+      expect(countSentence([{ n: 1, what: 'dish' }])).toBe(
+        'Image 1 is the only product reference. Show exactly 1 dish, appearing exactly once.'
+      )
+    })
+
+    it('joins two entries with and', () => {
+      expect(countSentence([{ n: 1, what: 'holder' }, { n: 6, what: 'coasters' }])).toContain(
+        'exactly 1 holder and exactly 6 coasters'
+      )
+    })
+
+    it('joins three entries with commas and a final and', () => {
+      expect(
+        countSentence([{ n: 1, what: 'holder' }, { n: 6, what: 'coasters' }, { n: 2, what: 'feet' }])
+      ).toContain('exactly 1 holder, exactly 6 coasters and exactly 2 feet')
+    })
+  })
+
+  /* A plan written before counts replaced subject_and_count still sits in
+     staging_chats on the live catalogue. It renders fine, because the card only
+     reads scene and n, and then Generate throws a raw Zod error at the owner.
+     Nothing can recover the counts from that prose without guessing, which is
+     the guessing this change removed, so the plan has to be retired out loud. */
+  describe('a pending plan written against the old shape', () => {
+    const legacy = JSON.stringify({
+      scene: 'On a dresser.',
+      lighting: 'Warm window light from the left.',
+      subject_and_count: 'Show exactly one dish, appearing exactly once.',
+      composition: 'Centred at 8 inches.',
+      product_lock: 'Banded rim.',
+      extra_exclusions: [],
+      size: '1536x1024',
+      reference_photo_ids: [1],
+      n: 4,
+    })
+
+    it('is reported as stale rather than thrown at the owner', () => {
+      const result = parsePendingPlan(legacy)
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.reason).toMatch(/plan again|re-?plan|ask the (staging )?director/i)
+      expect(result.reason).not.toMatch(/zod|invalid_type|undefined/i)
+    })
+
+    it('still accepts a plan written against the current shape', () => {
+      const result = parsePendingPlan(JSON.stringify({ ...basePlan, reference_photo_ids: [photoId] }))
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.plan.counts).toEqual([{ n: 1, what: 'carved canoe-shaped dish' }])
+    })
+
+    it('reports unparseable json as stale too, rather than throwing', () => {
+      expect(parsePendingPlan('{not json').ok).toBe(false)
+    })
+  })
 })

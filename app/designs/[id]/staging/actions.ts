@@ -256,13 +256,15 @@ export async function executePlanAction(_prev: ActionResult | null, formData: Fo
   try {
     const designId = Number(formData.get('design_id'))
     const { getChatForDesign, setPendingPlan } = await import('@/lib/catalog/chats')
-    const { StagingPlanSchema } = await import('@/lib/staging/plan')
+    const { parsePendingPlan } = await import('@/lib/staging/plan')
     const { runPlannedBatch } = await import('@/lib/staging/stage')
     const db = getCatalogDb()
     const detail = designForJob(designId)
     const chat = getChatForDesign(db, designId)
     if (!chat?.pending_plan_json) throw new Error('no pending plan; ask the staging director first')
-    const plan = StagingPlanSchema.parse(JSON.parse(chat.pending_plan_json))
+    const parsed = parsePendingPlan(chat.pending_plan_json)
+    if (!parsed.ok) return { ok: false, message: parsed.reason }
+    const plan = parsed.plan
     const destination = `/designs/${designId}/staging`
     const input: JobInput = {
       kind: 'planned_batch',
