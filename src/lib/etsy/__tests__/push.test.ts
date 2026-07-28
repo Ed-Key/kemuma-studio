@@ -9,7 +9,7 @@ import { createDesign, addPiece, addPhoto, getDesignDetail, listEvents } from '@
 import { createDraft, approveDraft } from '@/lib/catalog/drafts'
 import { addVideo } from '@/lib/catalog/videos'
 import { buildInventoryProducts, pushDraftToEtsy } from '@/lib/etsy/push'
-import type { EtsyGateway } from '@/lib/etsy/gateway'
+import { EtsyApiError, type EtsyGateway } from '@/lib/etsy/gateway'
 
 const DRAFT = {
   title: 'Vintage Kenyan Soapstone Coaster Set',
@@ -49,6 +49,7 @@ function fakeGateway(overrides: Partial<EtsyGateway> = {}): EtsyGateway {
       { property_id: 201, name: 'Primary color', scales: [], possible_values: [{ value_id: 2, name: 'Blue' }] },
     ]),
     updateListingProperty: vi.fn(async () => undefined),
+
     ...overrides,
   }
 }
@@ -370,5 +371,87 @@ describe('pushDraftToEtsy', () => {
     // dimensions height 3 on property 505
     expect(calls).toContainEqual([42, 777, 505, { values: '3', scale_id: 347 }])
     expect(result.attributes_set).toBeGreaterThanOrEqual(3)
+  })
+})
+
+/* Recorded in the catalogue on 2026-07-27 01:25:11: the Standing Giraffe listing
+   went live with two of its four photos and this in the warnings.
+
+     ["image 147 failed to upload: fetch failed",
+      "image 149 failed to upload: fetch failed"]
+
+   147 is position 0, the listing's lead shot. Two pushes ran in the next forty
+   seconds and uploaded nothing, because the photo loop only runs when the
+   listing is being created. So a dropped photo was not only un-retried, it was
+   unreachable afterwards.
+
+   The same reasoning as images-codex.ts: retry the transient thing, never retry
+   a refusal that means something. */
+describe('image uploads survive a dropped connection', () => {
+  const transient = () => Object.assign(new TypeError('fetch failed'), { name: 'TypeError' })
+
+  it('retries a transient upload failure instead of dropping the photo', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red'] })
+    let attempts = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempts += 1
+        // Fails once for the first photo, as the live push did.
+        if (attempts === 1) throw transient()
+        return undefined
+      }),
+    })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(result.images_uploaded).toBe(2)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('does not retry a refusal that means something', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const upload = vi.fn(async () => {
+      throw new EtsyApiError(400, 'image is not a valid jpeg')
+    })
+    const gw = fakeGateway({ uploadListingImage: upload })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    // One attempt. Etsy looked at the file and said no; asking twice more only
+    // spends the shop's rate limit to hear the same answer.
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(result.images_uploaded).toBe(0)
+    expect(result.warnings.join(' ')).toMatch(/not a valid jpeg/)
+  })
+
+  it('retries a rate limit, which is an instruction to wait rather than a refusal', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    let attempts = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempts += 1
+        if (attempts === 1) throw new EtsyApiError(429, 'rate limit exceeded')
+        return undefined
+      }),
+    })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(result.images_uploaded).toBe(1)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('gives up after three attempts and says so, rather than failing silently', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const upload = vi.fn(async () => {
+      throw transient()
+    })
+    const gw = fakeGateway({ uploadListingImage: upload })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(upload).toHaveBeenCalledTimes(3)
+    expect(result.images_uploaded).toBe(0)
+    expect(result.warnings.join(' ')).toMatch(/failed to upload/)
   })
 })

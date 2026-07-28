@@ -12,6 +12,7 @@ import { latestDraftForDesign } from '@/lib/catalog/drafts'
 import { markVideoUploaded, videoForDesign } from '@/lib/catalog/videos'
 import { prepareImage, PREPARED_MAX_EDGE, PREPARED_QUALITY } from '@/lib/images/prepare'
 import type { EtsyGateway } from './gateway'
+import { withRetry } from './retry'
 import { EtsyApiError } from './gateway'
 import type { InventoryBody } from './types'
 import { pickTaxonomyNode } from './taxonomy'
@@ -58,7 +59,8 @@ export async function pushDraftToEtsy(
   db: Db,
   gateway: EtsyGateway,
   designId: number,
-  dataDir: string
+  dataDir: string,
+  opts: { backoffMs?: number } = {}
 ): Promise<PushResult> {
   const detail = getDesignDetail(db, designId)
   if (!detail) throw new Error(`design ${designId} not found`)
@@ -154,7 +156,11 @@ export async function pushDraftToEtsy(
         if (!src) continue
         const prepared = path.join(dataDir, 'prepared', String(photo.piece_id), `${photo.position}.jpg`)
         await prepareImage(src, prepared, { maxEdge: PREPARED_MAX_EDGE, quality: PREPARED_QUALITY })
-        await gateway.uploadListingImage(me.shop_id, listingId, await readFile(prepared), path.basename(prepared), index + 1)
+        const bytes = await readFile(prepared)
+        await withRetry(
+          () => gateway.uploadListingImage(me.shop_id, listingId!, bytes, path.basename(prepared), index + 1),
+          { backoffMs: opts.backoffMs }
+        )
         imagesUploaded += 1
       } catch (err) {
         warnings.push(`image ${photo.photo_id} failed to upload: ${err instanceof Error ? err.message : String(err)}`)
@@ -185,11 +191,10 @@ export async function pushDraftToEtsy(
   const clip = videoForDesign(db, designId)
   if (clip && !clip.etsy_uploaded_at) {
     try {
-      await gateway.uploadListingVideo(
-        me.shop_id,
-        listingId,
-        await readFile(clip.file_path),
-        path.basename(clip.file_path)
+      const clipBytes = await readFile(clip.file_path)
+      await withRetry(
+        () => gateway.uploadListingVideo(me.shop_id, listingId!, clipBytes, path.basename(clip.file_path)),
+        { backoffMs: opts.backoffMs }
       )
       markVideoUploaded(db, clip.video_id)
       videoUploaded = true
