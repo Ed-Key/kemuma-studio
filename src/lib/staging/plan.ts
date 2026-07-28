@@ -4,6 +4,13 @@ import { getDesignDetail } from '@/lib/catalog/catalog'
 import { assembleStagingPrompt, validateStagingPrompt } from './prompt'
 import type { SceneTemplate, StagingSize } from './scenes'
 
+/* The largest count the words below can name. n is capped to it so the two
+   cover the same range: leave n unbounded and {n: 21, what: "twenty-one
+   coasters"} sails past the check and assembles as "exactly 21 twenty-one
+   coasters". These are handmade sets, so a cap is truthful as well as
+   convenient. Raise both together or neither. */
+const MAX_COUNT = 20
+
 const NUMBER_WORDS = new Map<string, number>([
   ['one', 1],
   ['two', 2],
@@ -45,7 +52,7 @@ export const StagingPlanSchema = z.object({
     .array(
       z
         .object({
-          n: z.number().int().min(1),
+          n: z.number().int().min(1).max(MAX_COUNT),
           /* A bare noun phrase and nothing else. Left open, the model writes the
              whole sentence in here and the assembler doubles it: "Show exactly 1
              exactly one carved cat figure, appearing exactly once". Refusing

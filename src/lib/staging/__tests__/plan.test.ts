@@ -144,6 +144,19 @@ describe('staging plans', () => {
     expect(StagingPlanSchema.shape.counts.safeParse([{ n: 1, what: '   ' }]).success).toBe(false)
   })
 
+  /* The written-out numbers and the counts they can contradict have to cover
+     the same range or the rule has a hole above it: n was unbounded while the
+     words stopped at twenty, so {n: 21, what: "twenty-one coasters"} passed and
+     assembled as "exactly 21 twenty-one coasters". These are soapstone sets,
+     not warehouse stock, so the cap is the honest fix. */
+  it('refuses a count larger than the words that could contradict it', () => {
+    const parse = (n: number) =>
+      StagingPlanSchema.shape.counts.safeParse([{ n, what: 'coasters' }]).success
+    expect(parse(20)).toBe(true)
+    expect(parse(21)).toBe(false)
+    expect(parse(100)).toBe(false)
+  })
+
   /* The refinement on `what` exists to stop the model writing the count into
      the noun ("exactly one cat figure"), which made the assembler double it.
      A false rejection here would start the same loop the field replaced, so
