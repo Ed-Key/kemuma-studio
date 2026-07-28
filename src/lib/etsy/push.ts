@@ -3,9 +3,10 @@ import path from 'node:path'
 import type { Db } from '@/lib/catalog/db'
 import {
   getDesignDetail,
-  getPhotoPath,
   logEvent,
   markDesignPiecesListed,
+  markPhotoUploaded,
+  photosForDesign,
   setDesignEtsyListingId,
 } from '@/lib/catalog/catalog'
 import { latestDraftForDesign } from '@/lib/catalog/drafts'
@@ -147,26 +148,6 @@ export async function pushDraftToEtsy(
     created = true
     setDesignEtsyListingId(db, designId, listingId)
 
-    const photos = detail.pieces
-      .flatMap((p) => p.photos.map((ph) => ({ piece_id: p.piece_id, photo_id: ph.photo_id, position: ph.position })))
-      .slice(0, 10)
-    for (const [index, photo] of photos.entries()) {
-      try {
-        const src = getPhotoPath(db, photo.photo_id)
-        if (!src) continue
-        const prepared = path.join(dataDir, 'prepared', String(photo.piece_id), `${photo.position}.jpg`)
-        await prepareImage(src, prepared, { maxEdge: PREPARED_MAX_EDGE, quality: PREPARED_QUALITY })
-        const bytes = await readFile(prepared)
-        await withRetry(
-          () => gateway.uploadListingImage(me.shop_id, listingId!, bytes, path.basename(prepared), index + 1),
-          { backoffMs: opts.backoffMs }
-        )
-        imagesUploaded += 1
-      } catch (err) {
-        warnings.push(`image ${photo.photo_id} failed to upload: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-
   } else {
     await gateway.updateListing(me.shop_id, listingId, {
       title: draft.title,
@@ -181,6 +162,30 @@ export async function pushDraftToEtsy(
       item_height: parcelHeight,
       item_dimensions_unit: 'in',
     })
+  }
+
+  /* On create and on update both. This used to run only when the listing was
+     being created, so a photo whose upload dropped was never sent again and
+     every later push reported that images were not re-pushed. etsy_uploaded_at
+     is what makes the second push able to tell the difference: send the photos
+     with no record and leave the rest alone, which also means a photo the owner
+     removed on Etsy is not quietly put back. */
+  const photos = photosForDesign(db, designId).slice(0, 10)
+  for (const [index, photo] of photos.entries()) {
+    if (photo.etsy_uploaded_at) continue
+    try {
+      const prepared = path.join(dataDir, 'prepared', String(photo.piece_id), `${photo.position}.jpg`)
+      await prepareImage(photo.file_path, prepared, { maxEdge: PREPARED_MAX_EDGE, quality: PREPARED_QUALITY })
+      const bytes = await readFile(prepared)
+      await withRetry(
+        () => gateway.uploadListingImage(me.shop_id, listingId!, bytes, path.basename(prepared), index + 1),
+        { backoffMs: opts.backoffMs }
+      )
+      markPhotoUploaded(db, photo.photo_id)
+      imagesUploaded += 1
+    } catch (err) {
+      warnings.push(`image ${photo.photo_id} failed to upload: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
   // Sent once, on both create and update, and only if this design has a clip

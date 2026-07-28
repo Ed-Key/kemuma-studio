@@ -455,3 +455,71 @@ describe('image uploads survive a dropped connection', () => {
     expect(result.warnings.join(' ')).toMatch(/failed to upload/)
   })
 })
+
+/* Retrying narrows the window; it does not close it. Five photos across four
+   live listings were lost this way and never went back, because the photo loop
+   only ran when the listing was being created. Every update push since has
+   said so in its own warnings, thirteen times: "update mode: images not
+   re-pushed".
+
+   The fix is the one the staging path already uses. A staged scene records
+   etsy_uploaded_at when it lands, so a failure is visible and the work can be
+   picked up again. Photos had no such record, so nothing could tell a photo
+   that went up from one that never did. */
+describe('a photo that never reached the listing goes up on the next push', () => {
+  it('records which photos actually landed', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red'] })
+    let attempt = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempt += 1
+        if (attempt === 1) throw new EtsyApiError(400, 'nope')
+        return undefined
+      }),
+    })
+    await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+
+    const { photosForDesign } = await import('@/lib/catalog/catalog')
+    const stamped = photosForDesign(db, designId).map((p) => p.etsy_uploaded_at !== null)
+    // The one Etsy refused carries no stamp; the one it took does.
+    expect(stamped).toEqual([false, true])
+  })
+
+  it('sends only the photos with no record, on a listing that already exists', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red', 'green'] })
+    let attempt = 0
+    const first = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempt += 1
+        if (attempt === 2) throw new EtsyApiError(400, 'nope')
+        return undefined
+      }),
+    })
+    const one = await pushDraftToEtsy(db, first, designId, dataDir, { backoffMs: 0 })
+    expect(one.created).toBe(true)
+    expect(one.images_uploaded).toBe(2)
+
+    const upload = vi.fn(async () => undefined)
+    const two = await pushDraftToEtsy(db, fakeGateway({ uploadListingImage: upload }), designId, dataDir, {
+      backoffMs: 0,
+    })
+    expect(two.created).toBe(false)
+    expect(two.images_uploaded).toBe(1)
+    expect(upload).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends nothing when every photo is already recorded', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red'] })
+    await pushDraftToEtsy(db, fakeGateway(), designId, dataDir, { backoffMs: 0 })
+
+    const upload = vi.fn(async () => undefined)
+    const result = await pushDraftToEtsy(db, fakeGateway({ uploadListingImage: upload }), designId, dataDir, {
+      backoffMs: 0,
+    })
+    expect(upload).not.toHaveBeenCalled()
+    expect(result.images_uploaded).toBe(0)
+  })
+})

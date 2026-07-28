@@ -196,6 +196,47 @@ function migrate(db: Db): void {
   if (!photoCols.includes('dimension_shot')) {
     db.exec('ALTER TABLE photos ADD COLUMN dimension_shot INTEGER NOT NULL DEFAULT 0')
   }
+  /* Which photos actually reached the listing, the same record a staged scene
+     has kept all along. Without it nothing could tell a photo that went up from
+     one whose upload dropped, so a second push sent none of them and five
+     photos across four live listings stayed missing.
+
+     The backfill has to assume every photo of an existing listing is already
+     up, or the first push after this would duplicate nineteen listings' worth
+     of images. The exceptions are named in the push events: a failed upload
+     wrote "image <id> failed to upload" into the warnings at the time, so the
+     catalogue already knows exactly which ones to leave unstamped. */
+  if (!photoCols.includes('etsy_uploaded_at')) {
+    db.exec('ALTER TABLE photos ADD COLUMN etsy_uploaded_at TEXT')
+    db.exec(`
+      UPDATE photos SET etsy_uploaded_at = datetime('now')
+      WHERE piece_id IN (
+        SELECT p.piece_id FROM pieces p JOIN designs d ON d.design_id = p.design_id
+        WHERE d.etsy_listing_id IS NOT NULL
+      )
+    `)
+    const failed = new Set<number>()
+    const pushes = db
+      .prepare("SELECT payload FROM events WHERE type = 'etsy.pushed'")
+      .all() as Array<{ payload: string }>
+    for (const row of pushes) {
+      let warnings: unknown
+      try {
+        warnings = (JSON.parse(row.payload) as { warnings?: unknown }).warnings
+      } catch {
+        continue
+      }
+      if (!Array.isArray(warnings)) continue
+      for (const warning of warnings) {
+        const hit = /^image (\d+) failed to upload/.exec(String(warning))
+        if (hit) failed.add(Number(hit[1]))
+      }
+    }
+    if (failed.size > 0) {
+      const holes = [...failed].map(() => '?').join(',')
+      db.prepare(`UPDATE photos SET etsy_uploaded_at = NULL WHERE photo_id IN (${holes})`).run(...failed)
+    }
+  }
   const intakeCols = (db.prepare('PRAGMA table_info(intakes)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!intakeCols.includes('facts_json')) {
     db.exec('ALTER TABLE intakes ADD COLUMN facts_json TEXT')
