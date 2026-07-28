@@ -93,7 +93,7 @@ async function runDirectorTurn(
 
   const { agentModel, runAgentTurn } = await import('@/lib/staging/agent')
   const { defaultAgentClient } = await import('@/lib/staging/agent-openai')
-  const result = await runAgentTurn(db, defaultAgentClient(), call)
+  const result = await runAgentTurn(db, defaultAgentClient(), call, { onStep: say })
   const model = agentModel()
   revalidatePath(destination)
   return {

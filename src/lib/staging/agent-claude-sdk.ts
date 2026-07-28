@@ -10,7 +10,13 @@ import { getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { appendChatMessages, getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { claudeSubscriptionEnv, type ClaudeSdkQueryFn } from '@/lib/claude-sdk'
 import { computeCostUsd } from '@/lib/writer/prices'
-import { AGENT_TOOLS, executeAgentTool, PLAN_RETRY_LIMIT, type AgentToolCtx } from './agent-tools'
+import {
+  AGENT_TOOLS,
+  executeAgentTool,
+  planRefusalReason,
+  PLAN_RETRY_LIMIT,
+  type AgentToolCtx,
+} from './agent-tools'
 import { buildAgentSystemPrompt } from './agent'
 
 type JsonProperty = {
@@ -108,18 +114,11 @@ function stagingMcpServer(
           const result = await executeAgentTool(db, toolCtx, agentTool.name, args)
           const after = toolCtx.planRejections ?? 0
           if (after > before) {
-            // The refusal text leads with an instruction to the model; the rail
-            // wants the rules underneath it.
             const said = result.find((b) => b.type === 'text')
             const body = said && 'text' in said ? said.text : ''
-            const rules = body
-              .split('\n')
-              .filter((line) => line.startsWith('- '))
-              .map((line) => line.slice(2))
-              .join('; ')
             onStep({
               kind: 'rejected',
-              reason: rules || body,
+              reason: planRefusalReason(body),
               gaveUp: after > PLAN_RETRY_LIMIT,
             })
           }

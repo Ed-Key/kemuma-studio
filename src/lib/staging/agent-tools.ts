@@ -21,6 +21,15 @@ export type AgentToolCtx = { designId: number; chatId: number; planRejections?: 
    the bug. */
 export const PLAN_RETRY_LIMIT = 3
 
+export function planRefusalReason(body: string): string {
+  const rules = body
+    .split('\n')
+    .filter((line) => line.startsWith('- '))
+    .map((line) => line.slice(2))
+    .join('; ')
+  return rules || body
+}
+
 export const AGENT_TOOLS = [
   {
     name: 'view_design',

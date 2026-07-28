@@ -3,8 +3,15 @@ import type { Db } from '@/lib/catalog/db'
 import { getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { appendChatMessages, getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { computeCostUsd } from '@/lib/writer/prices'
-import { AGENT_TOOLS, executeAgentTool, type AgentToolCtx } from './agent-tools'
+import {
+  AGENT_TOOLS,
+  executeAgentTool,
+  planRefusalReason,
+  PLAN_RETRY_LIMIT,
+  type AgentToolCtx,
+} from './agent-tools'
 import { DEFAULT_STAGING_AGENT_MODEL } from './agent-openai'
+import type { AgentStep } from './agent-claude-sdk'
 
 // Minimal client surface so tests can script the conversation.
 export interface StagingAgentClient {
@@ -75,7 +82,8 @@ const MAX_TURNS = 8
 export async function runAgentTurn(
   db: Db,
   client: StagingAgentClient,
-  input: { designId: number; chatId: number; userText: string }
+  input: { designId: number; chatId: number; userText: string },
+  opts?: { onStep?: (step: AgentStep) => void }
 ): Promise<{ reply: string; input_tokens: number; output_tokens: number }> {
   const detail = getDesignDetail(db, input.designId)
   if (!detail) throw new Error(`design ${input.designId} not found`)
@@ -98,6 +106,7 @@ export async function runAgentTurn(
      the cap could never trip and the loop it exists to stop was still reachable
      down this path. */
   const toolCtx: AgentToolCtx = { designId: input.designId, chatId: input.chatId }
+  const step = opts?.onStep ?? (() => {})
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await client.messages.create({
       model: agentModel(),
@@ -116,10 +125,23 @@ export async function runAgentTurn(
       for (const block of response.content) {
         if (block.type !== 'tool_use') continue
         const tu = block as { id: string; name: string; input: unknown }
+        step({ kind: 'tool', name: tu.name, input: tu.input })
+        const before = toolCtx.planRejections ?? 0
+        const result = await executeAgentTool(db, toolCtx, tu.name, tu.input)
+        const after = toolCtx.planRejections ?? 0
+        if (after > before) {
+          const said = result.find((b) => b.type === 'text')
+          const body = said && 'text' in said ? said.text : ''
+          step({
+            kind: 'rejected',
+            reason: planRefusalReason(body),
+            gaveUp: after > PLAN_RETRY_LIMIT,
+          })
+        }
         results.push({
           type: 'tool_result',
           tool_use_id: tu.id,
-          content: await executeAgentTool(db, toolCtx, tu.name, tu.input),
+          content: result,
         })
       }
       messages.push({ role: 'user', content: results })

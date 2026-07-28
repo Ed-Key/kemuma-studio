@@ -6,6 +6,7 @@ import { openDb, type Db } from '@/lib/catalog/db'
 import { createDesign, addPiece, addPhoto, listEvents } from '@/lib/catalog/catalog'
 import { getOrCreateChatForDesign, getChatForDesign } from '@/lib/catalog/chats'
 import { buildAgentSystemPrompt, runAgentTurn, type StagingAgentClient } from '@/lib/staging/agent'
+import type { AgentStep } from '@/lib/staging/agent-claude-sdk'
 
 function tempDbPath(): string {
   return path.join(mkdtempSync(path.join(tmpdir(), 'kemuma-agent-')), 'catalog.sqlite')
@@ -30,6 +31,42 @@ function scriptedClient(log: unknown[]): StagingAgentClient {
           stop_reason: 'end_turn',
           usage: { input_tokens: 1200, output_tokens: 80 },
           content: [{ type: 'text', text: 'Planned: gold chain over the rim on a dresser.' }],
+        }
+      },
+    },
+  } as StagingAgentClient
+}
+
+const badPlan = {
+  scene: 'On a dresser.',
+  lighting: 'Warm window light from the left with contact shadows.',
+  counts: [],
+  arrangement: 'The dish on its own.',
+  composition: 'Centred at 8 inches.',
+  product_lock: 'Banded rim.',
+  extra_exclusions: [],
+  size: '1536x1024',
+  reference_photo_ids: [1],
+  n: 4,
+}
+
+function refusingClient(refusals: number): StagingAgentClient {
+  let call = 0
+  return {
+    messages: {
+      async create() {
+        call += 1
+        if (call <= refusals) {
+          return {
+            stop_reason: 'tool_use',
+            usage: { input_tokens: 10, output_tokens: 5 },
+            content: [{ type: 'tool_use', id: `tu_p_${call}`, name: 'plan_batch', input: badPlan }],
+          }
+        }
+        return {
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 10, output_tokens: 5 },
+          content: [{ type: 'text', text: 'I could not plan this batch.' }],
         }
       },
     },
@@ -149,18 +186,6 @@ describe('staging agent loop', () => {
      could never trip: the loop the cap exists to stop was still reachable here
      the whole time. */
   it('carries one tool context across the whole turn, so the rejection cap can trip', async () => {
-    const badPlan = {
-      scene: 'On a dresser.',
-      lighting: 'Warm window light from the left with contact shadows.',
-      counts: [],
-      arrangement: 'The dish on its own.',
-      composition: 'Centred at 8 inches.',
-      product_lock: 'Banded rim.',
-      extra_exclusions: [],
-      size: '1536x1024',
-      reference_photo_ids: [1],
-      n: 4,
-    }
     const results: string[] = []
     const stubborn: StagingAgentClient = {
       messages: {
@@ -188,5 +213,49 @@ describe('staging agent loop', () => {
       /tool-loop limit/
     )
     expect(results.some((text) => /stop calling plan_batch/i.test(text))).toBe(true)
+  })
+
+  it('reports a refused plan_batch with the rule that failed', async () => {
+    const steps: AgentStep[] = []
+
+    await runAgentTurn(
+      db,
+      refusingClient(1),
+      { designId, chatId, userText: 'stage it' },
+      { onStep: (step) => steps.push(step) }
+    )
+
+    const rejected = steps.find((step) => step.kind === 'rejected')
+    expect(rejected).toBeDefined()
+    if (!rejected || rejected.kind !== 'rejected') return
+    expect(rejected.reason).toMatch(/counts/i)
+  })
+
+  it('reports gaveUp on the fourth refusal', async () => {
+    const steps: AgentStep[] = []
+
+    await runAgentTurn(
+      db,
+      refusingClient(4),
+      { designId, chatId, userText: 'stage it' },
+      { onStep: (step) => steps.push(step) }
+    )
+
+    const rejected = steps.filter((step) => step.kind === 'rejected')
+    expect(rejected).toHaveLength(4)
+    expect(rejected[3]).toMatchObject({ kind: 'rejected', gaveUp: true })
+  })
+
+  it('reports a successful tool call as a tool step', async () => {
+    const steps: AgentStep[] = []
+
+    await runAgentTurn(
+      db,
+      scriptedClient([]),
+      { designId, chatId, userText: 'show me the design' },
+      { onStep: (step) => steps.push(step) }
+    )
+
+    expect(steps).toContainEqual({ kind: 'tool', name: 'view_design', input: {} })
   })
 })

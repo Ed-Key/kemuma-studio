@@ -4,11 +4,29 @@ import { getDesignDetail } from '@/lib/catalog/catalog'
 import { assembleStagingPrompt, validateStagingPrompt } from './prompt'
 import type { SceneTemplate, StagingSize } from './scenes'
 
-/* A number, or a written-out number, or an article, at the start of the phrase
-   and followed by a space. The trailing space is what keeps "6-inch base" and
-   "three-legged stool" out of it: a hyphen makes a dimension, not a count. */
-const LEADING_COUNT =
-  /^\s*(\d+\s|an?\s|(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen)\s)/i
+const NUMBER_WORDS = new Map<string, number>([
+  ['one', 1],
+  ['two', 2],
+  ['three', 3],
+  ['four', 4],
+  ['five', 5],
+  ['six', 6],
+  ['seven', 7],
+  ['eight', 8],
+  ['nine', 9],
+  ['ten', 10],
+  ['eleven', 11],
+  ['twelve', 12],
+  ['dozen', 12],
+  ['thirteen', 13],
+  ['fourteen', 14],
+  ['fifteen', 15],
+  ['sixteen', 16],
+  ['seventeen', 17],
+  ['eighteen', 18],
+  ['nineteen', 19],
+  ['twenty', 20],
+])
 
 export const StagingPlanSchema = z.object({
   scene: z.string().describe('SCENE section body: environment, mood, and any owner-requested props described concretely.'),
@@ -25,26 +43,30 @@ export const StagingPlanSchema = z.object({
      one holder and six coasters, not one thing. */
   counts: z
     .array(
-      z.object({
-        n: z.number().int().min(1),
-        /* A bare noun phrase and nothing else. Left open, the model writes the
-           whole sentence in here and the assembler doubles it: "Show exactly 1
-           exactly one carved cat figure, appearing exactly once". Refusing
-           digits and the word itself is what teaches the shape. */
-        what: z
-          .string()
-          .min(1)
-          /* Only a leading count is banned, and a count is a number followed by
-             a space. "6-inch base" and "2-piece set" are ordinary noun phrases
-             and must pass; a false rejection here starts exactly the loop this
-             field replaced. The written-out numbers run past six because they
-             have to: the list used to stop there, so {n: 8, what: "eight
-             coasters"} assembled as "exactly 8 eight coasters". */
-          .refine((v) => !LEADING_COUNT.test(v) && !/\bexactly\b/i.test(v), {
+      z
+        .object({
+          n: z.number().int().min(1),
+          /* A bare noun phrase and nothing else. Left open, the model writes the
+             whole sentence in here and the assembler doubles it: "Show exactly 1
+             exactly one carved cat figure, appearing exactly once". Refusing
+             digits and the word itself is what teaches the shape. */
+          what: z
+            .string()
+            .trim()
+            .min(1)
+            .refine((v) => !/^(?:an?|\d+)\s/i.test(v) && !/\bexactly\b/i.test(v), {
+              message:
+                'write a bare noun phrase, like "soapstone holder". Do not start with an article or a digit followed by a space, and never use the word "exactly": the count sentence is written for you',
+            }),
+        })
+        .refine(
+          ({ n, what }) => NUMBER_WORDS.get(what.split(/\s/, 1)[0].toLowerCase()) !== n,
+          {
+            path: ['what'],
             message:
-              'write a bare noun phrase, like "soapstone holder". Do not start with a number or an article, and never use the word "exactly": the count sentence is written for you',
-          }),
-      })
+              'remove the leading number word from the noun phrase because n already supplies that count',
+          }
+        )
     )
     .min(1)
     .max(4)

@@ -140,6 +140,9 @@ describe('staging plans', () => {
     expect(parsed.success).toBe(false)
   })
 
+  it('refuses a count whose what is only whitespace', () => {
+    expect(StagingPlanSchema.shape.counts.safeParse([{ n: 1, what: '   ' }]).success).toBe(false)
+  })
 
   /* The refinement on `what` exists to stop the model writing the count into
      the noun ("exactly one cat figure"), which made the assembler double it.
@@ -147,37 +150,35 @@ describe('staging plans', () => {
      the boundary is worth pinning: a leading number followed by a space is a
      count, a leading number followed by a hyphen is a dimension. */
   describe('the noun phrase a count carries', () => {
-    const parse = (what: string) =>
-      StagingPlanSchema.shape.counts.safeParse([{ n: 1, what }]).success
+    const parse = (n: number, what: string) =>
+      StagingPlanSchema.shape.counts.safeParse([{ n, what }]).success
 
     it.each([
-      'soapstone holder',
-      'coasters',
-      '6-inch base',
-      '2-piece set',
-      '12-sided die',
-      'figure-of-eight knot',
-      'three-legged stool',
-      'onesie',
-      'anemone',
-      'oneida bowl',
-    ])('accepts %j', (what) => expect(parse(what)).toBe(true))
+      { n: 1, what: 'soapstone holder' },
+      { n: 1, what: 'coasters' },
+      { n: 1, what: '6-inch base' },
+      { n: 1, what: '2-piece set' },
+      { n: 1, what: '12-sided die' },
+      { n: 1, what: 'figure-of-eight knot' },
+      { n: 1, what: 'three-legged stool' },
+      { n: 1, what: 'onesie' },
+      { n: 1, what: 'anemone' },
+      { n: 1, what: 'oneida bowl' },
+      { n: 1, what: 'Three Wise Monkeys figure' },
+      { n: 5, what: 'two figures' },
+    ])('accepts $what with n=$n', ({ n, what }) => expect(parse(n, what)).toBe(true))
 
     it.each([
-      'a dish',
-      'an urn',
-      'one cat',
-      'two figures',
-      '6 coasters',
-      'exactly one cat',
-      // The list used to stop at six for no reason, so {n: 8, what: "eight
-      // coasters"} assembled as "exactly 8 eight coasters".
-      'seven coasters',
-      'eight coasters',
-      'nine figures',
-      'ten coasters',
-      'twelve coasters',
-    ])('refuses %j', (what) => expect(parse(what)).toBe(false))
+      { n: 1, what: 'a dish' },
+      { n: 1, what: 'an urn' },
+      { n: 1, what: 'one cat' },
+      { n: 2, what: 'two figures' },
+      { n: 6, what: '6 coasters' },
+      { n: 1, what: 'exactly one cat' },
+      { n: 8, what: 'eight coasters' },
+      { n: 13, what: 'thirteen coasters' },
+      { n: 20, what: 'twenty coasters' },
+    ])('refuses $what with n=$n', ({ n, what }) => expect(parse(n, what)).toBe(false))
   })
 
   /* "Show exactly 6 coasters, appearing exactly once" reads as though the six
