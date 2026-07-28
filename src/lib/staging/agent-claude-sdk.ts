@@ -10,7 +10,7 @@ import { getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { appendChatMessages, getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { claudeSubscriptionEnv, type ClaudeSdkQueryFn } from '@/lib/claude-sdk'
 import { computeCostUsd } from '@/lib/writer/prices'
-import { AGENT_TOOLS, executeAgentTool, PLAN_REJECTION_LIMIT, type AgentToolCtx } from './agent-tools'
+import { AGENT_TOOLS, executeAgentTool, PLAN_RETRY_LIMIT, type AgentToolCtx } from './agent-tools'
 import { buildAgentSystemPrompt } from './agent'
 
 type JsonProperty = {
@@ -20,7 +20,6 @@ type JsonProperty = {
   properties?: Record<string, JsonProperty>
   required?: readonly string[]
   description?: string
-  maxItems?: number
 }
 
 type JsonObjectSchema = {
@@ -39,10 +38,13 @@ function zodField(schema: JsonProperty): z.ZodType {
   }
   if (schema.type === 'string') return described(z.string())
   if (schema.type === 'number') return described(z.number())
-  if (schema.type === 'array' && schema.items) {
-    const arr = z.array(zodField(schema.items))
-    return described(schema.maxItems ? arr.max(schema.maxItems) : arr)
-  }
+  /* Deliberately unbounded. The SDK checks arguments against this schema and
+     never calls the handler when they fail, so every limit stated here is a
+     rejection the counter cannot count and the rail cannot show. Both live runs
+     of the fixed director over-supplied these arrays, which is exactly the case
+     that used to be settled up here and vanish. The caps live in
+     StagingPlanSchema, and the descriptions tell the model what they are. */
+  if (schema.type === 'array' && schema.items) return described(z.array(zodField(schema.items)))
   // Nested objects arrived with structured counts: the plan asks for a list of
   // {n, what} rather than a sentence, so the shape has to survive the trip.
   if (schema.type === 'object' && schema.properties) {
@@ -118,7 +120,7 @@ function stagingMcpServer(
             onStep({
               kind: 'rejected',
               reason: rules || body,
-              gaveUp: after > PLAN_REJECTION_LIMIT,
+              gaveUp: after > PLAN_RETRY_LIMIT,
             })
           }
           return {

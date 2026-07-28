@@ -3,7 +3,7 @@ import type { Db } from '@/lib/catalog/db'
 import { getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { appendChatMessages, getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { computeCostUsd } from '@/lib/writer/prices'
-import { AGENT_TOOLS, executeAgentTool } from './agent-tools'
+import { AGENT_TOOLS, executeAgentTool, type AgentToolCtx } from './agent-tools'
 import { DEFAULT_STAGING_AGENT_MODEL } from './agent-openai'
 
 // Minimal client surface so tests can script the conversation.
@@ -42,12 +42,18 @@ export function buildAgentSystemPrompt(): string {
     '- When the owner tells you a durable fact about the piece (what it holds, its story, a standing preference),',
     '  call save_staging_note with the complete current set of facts.',
     '- Ask at most one clarifying question, and only when the instruction is genuinely ambiguous.',
-    '- When ready, call plan_batch with all six prompt sections. Fix any validation errors it returns and call it',
-    '  again. plan_batch only stores the plan; you never generate images. The owner clicks Generate.',
+    '- When ready, call plan_batch. Fix any validation errors it returns and call it again. plan_batch only',
+    '  stores the plan; you never generate images. The owner clicks Generate.',
     'Prompt rules. The mandatory lock sentences are added to your plan automatically, so do not write',
     'them and do not spend a turn trying to reproduce them. Write only your own content:',
-    '- SUBJECT AND COUNT states exact counts with the word "exactly"; the product appears exactly once.',
-    '  This is the one rule the validator can still reject, so get the count right and say it plainly.',
+    '- counts is data, not a sentence. Give the product broken into its distinct parts and how many of each:',
+    '  a coaster set is [{"n":1,"what":"soapstone holder"},{"n":6,"what":"coasters"}]. Each "what" is a bare',
+    '  noun phrase with no number and no article. The count sentence is written for you from these numbers,',
+    '  so never write the word "exactly" yourself. Props and scenery are not counted; they belong in scene.',
+    '- arrangement says how the product sits: what faces the camera, what is stacked or fanned, and where any',
+    '  props sit relative to it.',
+    '- The lists are short and the caps are hard: at most 4 counts, at most 4 extra_exclusions, at most 3',
+    '  reference_photo_ids. Over-supplying any of them is rejected, and it is the mistake most often made.',
     '- LIGHTING AND INTEGRATION describes this scene\'s own light: direction, quality, colour temperature,',
     '  and directionally consistent contact shadows.',
     '- PRODUCT LOCK describes only identity-critical features visible in the photos.',
@@ -85,6 +91,11 @@ export async function runAgentTurn(
 
   let totalIn = 0
   let totalOut = 0
+  /* One context for the whole turn, not one per call. The rejection count lives
+     on it, and rebuilding it inside the loop reset the count on every call, so
+     the cap could never trip and the loop it exists to stop was still reachable
+     down this path. */
+  const toolCtx: AgentToolCtx = { designId: input.designId, chatId: input.chatId }
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await client.messages.create({
       model: agentModel(),
@@ -106,7 +117,7 @@ export async function runAgentTurn(
         results.push({
           type: 'tool_result',
           tool_use_id: tu.id,
-          content: await executeAgentTool(db, { designId: input.designId, chatId: input.chatId }, tu.name, tu.input),
+          content: await executeAgentTool(db, toolCtx, tu.name, tu.input),
         })
       }
       messages.push({ role: 'user', content: results })

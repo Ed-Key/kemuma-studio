@@ -7,7 +7,7 @@ import { openDb, type Db } from '@/lib/catalog/db'
 import { createDesign, addPiece, addPhoto } from '@/lib/catalog/catalog'
 import { getOrCreateChatForDesign, getChatForDesign, stagingNotesForDesign } from '@/lib/catalog/chats'
 import { createStagedImage } from '@/lib/catalog/staged'
-import { AGENT_TOOLS, executeAgentTool } from '@/lib/staging/agent-tools'
+import { AGENT_TOOLS, executeAgentTool, type AgentToolCtx } from '@/lib/staging/agent-tools'
 
 function tempDir(): string {
   return mkdtempSync(path.join(tmpdir(), 'kemuma-tools-'))
@@ -32,7 +32,7 @@ describe('agent tools', () => {
     chatId = getOrCreateChatForDesign(db, designId).chat_id
   })
 
-  const ctx = () => ({ designId, chatId })
+  const ctx = (): AgentToolCtx => ({ designId, chatId })
 
   it('declares every tool the loop dispatches', () => {
     const names = AGENT_TOOLS.map((t) => t.name)
@@ -141,6 +141,37 @@ describe('agent tools', () => {
 
     // Whatever it says, it must never quietly accept a plan that failed.
     expect(getChatForDesign(db, designId)!.pending_plan_json).toBeNull()
+  })
+
+  /* The Claude SDK validates tool arguments against the model-facing schema and
+     never reaches the handler when they fail, so anything that schema decides is
+     a rejection nobody counts and nobody writes to the rail. Both live runs of
+     the fixed director over-supplied these arrays, which is precisely the case
+     that used to be settled up there. The limits belong to StagingPlanSchema,
+     where the counter and the narration can see them. */
+  describe('limits the model-facing schema states but does not enforce', () => {
+    const shape = AGENT_TOOLS.find((t) => t.name === 'plan_batch')!.input_schema.properties as Record<
+      string,
+      { maxItems?: number; description?: string }
+    >
+
+    it.each(['counts', 'extra_exclusions', 'reference_photo_ids'])(
+      'leaves %s for the tool to reject, while still telling the model the cap',
+      (field) => {
+        expect(shape[field].maxItems).toBeUndefined()
+        expect(shape[field].description).toMatch(/\b(3|4|three|four)\b/)
+      }
+    )
+
+    it('counts an over-supplied plan as a rejection like any other', async () => {
+      const runCtx = ctx()
+      const out = await executeAgentTool(db, runCtx, 'plan_batch', {
+        ...badPlan(),
+        counts: [1, 2, 3, 4, 5].map((n) => ({ n, what: 'coaster' })),
+      })
+      expect((out[0] as { text: string }).text).toMatch(/plan rejected/i)
+      expect(runCtx.planRejections).toBe(1)
+    })
   })
 
   it('names the field that failed rather than only that something failed', async () => {

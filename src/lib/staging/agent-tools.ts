@@ -15,9 +15,11 @@ export type ToolResultContent = Array<{ type: 'text'; text: string } | ApiImageB
    nothing counted. */
 export type AgentToolCtx = { designId: number; chatId: number; planRejections?: number }
 
-/* Three is enough to fix a missing word and not enough to burn three minutes.
-   Past this the run is not converging and saying "try again" is the bug. */
-export const PLAN_REJECTION_LIMIT = 3
+/* Retries offered, not rejections tolerated: the fourth refusal is the one that
+   stops asking. Three is enough to fix a fumbled field and not enough to burn
+   three minutes. Past this the run is not converging and saying "try again" is
+   the bug. */
+export const PLAN_RETRY_LIMIT = 3
 
 export const AGENT_TOOLS = [
   {
@@ -72,7 +74,6 @@ export const AGENT_TOOLS = [
         },
         counts: {
           type: 'array' as const,
-          maxItems: 4,
           description:
             'The PRODUCT only, split into its distinct parts, with how many of each. A coaster set is [{"n":1,"what":"soapstone holder"},{"n":6,"what":"coasters"}]. Scenery and props do NOT go here. At most 4 entries. The count sentence is written for you.',
           items: {
@@ -104,7 +105,6 @@ export const AGENT_TOOLS = [
         },
         extra_exclusions: {
           type: 'array' as const,
-          maxItems: 4,
           description: 'At most 4 extra things to ban, beyond the standard exclusions already added for you.',
           items: { type: 'string' as const },
         },
@@ -115,7 +115,6 @@ export const AGENT_TOOLS = [
         },
         reference_photo_ids: {
           type: 'array' as const,
-          maxItems: 3,
           description: 'At most 3 photo ids of THIS design, best view first.',
           items: { type: 'number' as const },
         },
@@ -218,7 +217,7 @@ export async function executeAgentTool(
       const refuse = (reasons: string[]): ToolResultContent => {
         ctx.planRejections = (ctx.planRejections ?? 0) + 1
         const why = reasons.map((r) => `- ${r}`).join('\n')
-        if (ctx.planRejections > PLAN_REJECTION_LIMIT) {
+        if (ctx.planRejections > PLAN_RETRY_LIMIT) {
           return text(
             `plan rejected ${ctx.planRejections} times. Stop calling plan_batch and tell the owner the batch could not be planned, quoting this:\n${why}`
           )
