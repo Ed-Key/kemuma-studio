@@ -4,6 +4,12 @@ import { getDesignDetail } from '@/lib/catalog/catalog'
 import { assembleStagingPrompt, validateStagingPrompt } from './prompt'
 import type { SceneTemplate, StagingSize } from './scenes'
 
+/* A number, or a written-out number, or an article, at the start of the phrase
+   and followed by a space. The trailing space is what keeps "6-inch base" and
+   "three-legged stool" out of it: a hyphen makes a dimension, not a count. */
+const LEADING_COUNT =
+  /^\s*(\d+\s|an?\s|(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen)\s)/i
+
 export const StagingPlanSchema = z.object({
   scene: z.string().describe('SCENE section body: environment, mood, and any owner-requested props described concretely.'),
   lighting: z
@@ -31,8 +37,10 @@ export const StagingPlanSchema = z.object({
           /* Only a leading count is banned, and a count is a number followed by
              a space. "6-inch base" and "2-piece set" are ordinary noun phrases
              and must pass; a false rejection here starts exactly the loop this
-             field replaced. */
-          .refine((v) => !/^\s*(\d+\s|an?\s|one\s|two\s|three\s|four\s|five\s|six\s)/i.test(v) && !/\bexactly\b/i.test(v), {
+             field replaced. The written-out numbers run past six because they
+             have to: the list used to stop there, so {n: 8, what: "eight
+             coasters"} assembled as "exactly 8 eight coasters". */
+          .refine((v) => !LEADING_COUNT.test(v) && !/\bexactly\b/i.test(v), {
             message:
               'write a bare noun phrase, like "soapstone holder". Do not start with a number or an article, and never use the word "exactly": the count sentence is written for you',
           }),
@@ -85,22 +93,31 @@ export function countSentence(counts: StagingPlan['counts']): string {
  * what this change removed, so a stale plan is retired in words the owner can
  * act on rather than parsed harder.
  */
-export function parsePendingPlan(
-  json: string
-): { ok: true; plan: StagingPlan } | { ok: false; reason: string } {
-  const stale = {
-    ok: false as const,
-    reason:
-      'This plan was written before the staging director started counting pieces separately, so it can no longer be generated. Ask the director to plan again.',
-  }
-  let raw: unknown
+export type StoredPlan = { ok: true; plan: StagingPlan } | { ok: false; reason: string }
+
+export const STALE_PLAN_REASON =
+  'This plan was written before the staging director started counting pieces separately, so it can no longer be generated. Ask the director to plan again.'
+
+/** The chat's copy, still JSON. */
+export function parsePendingPlan(json: string): StoredPlan {
   try {
-    raw = JSON.parse(json)
+    return parseStoredPlan(JSON.parse(json))
   } catch {
-    return stale
+    return { ok: false, reason: STALE_PLAN_REASON }
   }
+}
+
+/**
+ * A planned_batch job's copy, already parsed.
+ *
+ * The chat is not the only place a plan lives. A job keeps its own copy so an
+ * interrupted batch can be run again, and ten of those in the catalogue hold
+ * the old shape. Replaying one has to say the same thing the Generate button
+ * says rather than a raw parse error.
+ */
+export function parseStoredPlan(raw: unknown): StoredPlan {
   const parsed = StagingPlanSchema.safeParse(raw)
-  return parsed.success ? { ok: true, plan: parsed.data } : stale
+  return parsed.success ? { ok: true, plan: parsed.data } : { ok: false, reason: STALE_PLAN_REASON }
 }
 
 export function assemblePlanPrompt(plan: StagingPlan): string {

@@ -108,7 +108,7 @@ async function runPlanned(
   input: Extract<JobInput, { kind: 'planned_batch' }>,
   say: Say
 ): Promise<JobUsage> {
-  const { StagingPlanSchema } = await import('@/lib/staging/plan')
+  const { parseStoredPlan } = await import('@/lib/staging/plan')
   const { runPlannedBatch } = await import('@/lib/staging/stage')
   const { defaultImageGenerator } = await import('@/lib/staging/images-codex')
   const { getStagedImage } = await import('@/lib/catalog/staged')
@@ -117,7 +117,9 @@ async function runPlanned(
   // Parsed from the stored copy rather than read back off the chat. The chat's
   // pending plan is cleared the moment a batch succeeds, so a run that reads it
   // live can only ever happen once; the job row is what makes it repeatable.
-  const plan = StagingPlanSchema.parse(input.plan)
+  const stored = parseStoredPlan(input.plan)
+  if (!stored.ok) throw new Error(stored.reason)
+  const plan = stored.plan
   const imageGenerator = defaultImageGenerator()
   const ids = await runPlannedBatch(
     db,

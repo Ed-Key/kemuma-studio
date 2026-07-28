@@ -9,6 +9,7 @@ import {
   assemblePlanPrompt,
   countSentence,
   parsePendingPlan,
+  parseStoredPlan,
   validatePlan,
   type StagingPlan,
 } from '@/lib/staging/plan'
@@ -162,10 +163,21 @@ describe('staging plans', () => {
       'oneida bowl',
     ])('accepts %j', (what) => expect(parse(what)).toBe(true))
 
-    it.each(['a dish', 'an urn', 'one cat', 'two figures', '6 coasters', 'exactly one cat'])(
-      'refuses %j',
-      (what) => expect(parse(what)).toBe(false)
-    )
+    it.each([
+      'a dish',
+      'an urn',
+      'one cat',
+      'two figures',
+      '6 coasters',
+      'exactly one cat',
+      // The list used to stop at six for no reason, so {n: 8, what: "eight
+      // coasters"} assembled as "exactly 8 eight coasters".
+      'seven coasters',
+      'eight coasters',
+      'nine figures',
+      'ten coasters',
+      'twelve coasters',
+    ])('refuses %j', (what) => expect(parse(what)).toBe(false))
   })
 
   /* "Show exactly 6 coasters, appearing exactly once" reads as though the six
@@ -231,6 +243,21 @@ describe('staging plans', () => {
 
     it('reports unparseable json as stale too, rather than throwing', () => {
       expect(parsePendingPlan('{not json').ok).toBe(false)
+    })
+
+    /* The chat is not the only place a plan is stored. A planned_batch job keeps
+       its own copy in input_json so the batch can be run again after an
+       interruption, and ten of those in the catalogue hold the old shape. That
+       replay has to give the owner the same sentence, not a Zod dump. */
+    it('gives the same answer for a plan replayed from a job row', () => {
+      const result = parseStoredPlan(JSON.parse(legacy))
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.reason).toMatch(/plan again/i)
+    })
+
+    it('accepts a current plan replayed from a job row', () => {
+      expect(parseStoredPlan({ ...basePlan, reference_photo_ids: [photoId] }).ok).toBe(true)
     })
   })
 })

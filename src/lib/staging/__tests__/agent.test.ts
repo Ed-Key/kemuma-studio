@@ -134,6 +134,14 @@ describe('staging agent loop', () => {
     it('no longer promises six sections', () => {
       expect(prompt()).not.toMatch(/all six prompt sections/)
     })
+
+    /* The tool stops inviting retries on the fourth refusal and tells the
+       director to report the failure instead. The prompt said, flatly, to fix
+       errors and call again, and a system instruction outranks a tool result,
+       so the director had standing permission to ignore the cap. */
+    it('tells the director to stop when the tool says stop', () => {
+      expect(prompt()).toMatch(/stop calling plan_batch|when it tells you to stop/i)
+    })
   })
 
   /* The rejection cap counts on a context object. This path rebuilt that object
