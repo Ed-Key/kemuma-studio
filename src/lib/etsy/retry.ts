@@ -66,7 +66,11 @@ export async function withRetry<T>(
     } catch (error) {
       if (!isTransient(error)) throw error
       last = error
-      if (attempt < attempts) await new Promise((r) => setTimeout(r, backoffMs * attempt))
+      if (attempt >= attempts) break
+      // Etsy's own number wins when it gave one: a rate limit is a duration,
+      // and waiting less than it asked burns the remaining attempts.
+      const asked = error instanceof EtsyApiError ? error.retryAfterMs : null
+      await new Promise((r) => setTimeout(r, Math.max(backoffMs * attempt, asked ?? 0)))
     }
   }
   throw last

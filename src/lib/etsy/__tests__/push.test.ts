@@ -550,3 +550,36 @@ describe('what counts as worth asking again', () => {
     ['something that is not an error at all', 'boom'],
   ])('does not retry %s', (_label, error) => expect(isTransient(error)).toBe(false))
 })
+
+/* A 429 is an instruction with a duration attached. Waiting less than Etsy
+   asked spends the remaining attempts hearing the same answer. */
+describe('a rate limit that names its own wait', () => {
+  it('waits at least as long as Etsy asked', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const waits: number[] = []
+    const started = Date.now()
+    let attempts = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempts += 1
+        waits.push(Date.now() - started)
+        if (attempts === 1) throw new EtsyApiError(429, 'slow down', 120)
+        return undefined
+      }),
+    })
+    // backoffMs 0 would normally retry instantly; the header has to win.
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(result.images_uploaded).toBe(1)
+    expect(waits[1]).toBeGreaterThanOrEqual(100)
+  })
+
+  it('reads the wait off the response, and survives one without headers', async () => {
+    const { retryAfterMs } = await import('@/lib/etsy/gateway')
+    expect(retryAfterMs({ headers: new Headers({ 'retry-after': '3' }) })).toBe(3000)
+    expect(retryAfterMs({ headers: new Headers() })).toBeNull()
+    // The error path must not throw while building an error.
+    expect(retryAfterMs({})).toBeNull()
+    expect(retryAfterMs(null)).toBeNull()
+  })
+})
