@@ -75,6 +75,32 @@ export function addPhoto(db: Db, input: { piece_id: number; file_path: string; p
   return id
 }
 
+export type DesignPhoto = {
+  photo_id: number
+  piece_id: number
+  file_path: string
+  position: number
+  etsy_uploaded_at: string | null
+}
+
+/** Every photo of a design, in listing order, with whether it reached Etsy. */
+export function photosForDesign(db: Db, designId: number): DesignPhoto[] {
+  return db
+    .prepare(`
+      SELECT ph.photo_id, ph.piece_id, ph.file_path, ph.position, ph.etsy_uploaded_at
+      FROM pieces p JOIN photos ph ON ph.piece_id = p.piece_id
+      WHERE p.design_id = ?
+      ORDER BY p.piece_id, ph.position
+    `)
+    .all(designId) as DesignPhoto[]
+}
+
+/* Stamped only after Etsy has taken the image, so an upload that dropped
+   leaves no record and the next push knows to send it again. */
+export function markPhotoUploaded(db: Db, photoId: number): void {
+  db.prepare("UPDATE photos SET etsy_uploaded_at = datetime('now') WHERE photo_id = ?").run(photoId)
+}
+
 export function getPhotoPath(db: Db, photoId: number): string | null {
   const row = db.prepare('SELECT file_path FROM photos WHERE photo_id = ?').get(photoId) as { file_path: string } | undefined
   return row?.file_path ?? null

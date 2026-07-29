@@ -21,11 +21,27 @@ const BASE = 'https://api.etsy.com/v3/application'
 export class EtsyApiError extends Error {
   status: number
   body: string
-  constructor(status: number, body: string) {
+  /* How long Etsy asked us to wait, when it said so. A 429 is an instruction
+     with a duration attached, and guessing a shorter one just spends the next
+     two attempts hearing the same answer. */
+  retryAfterMs: number | null
+  constructor(status: number, body: string, retryAfterMs: number | null = null) {
     super(`etsy api ${status}: ${body}`)
     this.status = status
     this.body = body
+    this.retryAfterMs = retryAfterMs
   }
+}
+
+/* Etsy sends retry-after in seconds. Read defensively: this runs while an
+   error is already being built, and a response without readable headers must
+   not turn a useful EtsyApiError into a crash on the way out. */
+export function retryAfterMs(res: unknown): number | null {
+  const headers = (res as { headers?: { get?: (name: string) => string | null } } | null)?.headers
+  const raw = typeof headers?.get === 'function' ? headers.get('retry-after') : null
+  if (!raw) return null
+  const seconds = Number(String(raw).trim())
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null
 }
 
 export interface EtsyGateway {
@@ -74,7 +90,7 @@ export function createEtsyGateway(deps: {
         : {}),
     }
     const res = await fetchFn(`${BASE}${path}`, init)
-    if (!res.ok) throw new EtsyApiError(res.status, await res.text())
+    if (!res.ok) throw new EtsyApiError(res.status, await res.text(), retryAfterMs(res))
     if (res.status === 204) return undefined as T
     const text = await res.text()
     return (text ? JSON.parse(text) : undefined) as T
@@ -91,7 +107,7 @@ export function createEtsyGateway(deps: {
       },
       body: JSON.stringify(body),
     })
-    if (!res.ok) throw new EtsyApiError(res.status, await res.text())
+    if (!res.ok) throw new EtsyApiError(res.status, await res.text(), retryAfterMs(res))
     const text = await res.text()
     return (text ? JSON.parse(text) : undefined) as T
   }
@@ -107,7 +123,7 @@ export function createEtsyGateway(deps: {
       },
       body: form,
     })
-    if (!res.ok) throw new EtsyApiError(res.status, await res.text())
+    if (!res.ok) throw new EtsyApiError(res.status, await res.text(), retryAfterMs(res))
     const text = await res.text()
     return (text ? JSON.parse(text) : undefined) as T
   }

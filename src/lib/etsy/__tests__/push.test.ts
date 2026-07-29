@@ -9,7 +9,8 @@ import { createDesign, addPiece, addPhoto, getDesignDetail, listEvents } from '@
 import { createDraft, approveDraft } from '@/lib/catalog/drafts'
 import { addVideo } from '@/lib/catalog/videos'
 import { buildInventoryProducts, pushDraftToEtsy } from '@/lib/etsy/push'
-import type { EtsyGateway } from '@/lib/etsy/gateway'
+import { EtsyApiError, type EtsyGateway } from '@/lib/etsy/gateway'
+import { isTransient } from '@/lib/etsy/retry'
 
 const DRAFT = {
   title: 'Vintage Kenyan Soapstone Coaster Set',
@@ -49,6 +50,7 @@ function fakeGateway(overrides: Partial<EtsyGateway> = {}): EtsyGateway {
       { property_id: 201, name: 'Primary color', scales: [], possible_values: [{ value_id: 2, name: 'Blue' }] },
     ]),
     updateListingProperty: vi.fn(async () => undefined),
+
     ...overrides,
   }
 }
@@ -370,5 +372,214 @@ describe('pushDraftToEtsy', () => {
     // dimensions height 3 on property 505
     expect(calls).toContainEqual([42, 777, 505, { values: '3', scale_id: 347 }])
     expect(result.attributes_set).toBeGreaterThanOrEqual(3)
+  })
+})
+
+/* Recorded in the catalogue on 2026-07-27 01:25:11: the Standing Giraffe listing
+   went live with two of its four photos and this in the warnings.
+
+     ["image 147 failed to upload: fetch failed",
+      "image 149 failed to upload: fetch failed"]
+
+   147 is position 0, the listing's lead shot. Two pushes ran in the next forty
+   seconds and uploaded nothing, because the photo loop only runs when the
+   listing is being created. So a dropped photo was not only un-retried, it was
+   unreachable afterwards.
+
+   The same reasoning as images-codex.ts: retry the transient thing, never retry
+   a refusal that means something. */
+describe('image uploads survive a dropped connection', () => {
+  const transient = () => Object.assign(new TypeError('fetch failed'), { name: 'TypeError' })
+
+  it('retries a transient upload failure instead of dropping the photo', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red'] })
+    let attempts = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempts += 1
+        // Fails once for the first photo, as the live push did.
+        if (attempts === 1) throw transient()
+        return undefined
+      }),
+    })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(result.images_uploaded).toBe(2)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('does not retry a refusal that means something', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const upload = vi.fn(async () => {
+      throw new EtsyApiError(400, 'image is not a valid jpeg')
+    })
+    const gw = fakeGateway({ uploadListingImage: upload })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    // One attempt. Etsy looked at the file and said no; asking twice more only
+    // spends the shop's rate limit to hear the same answer.
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(result.images_uploaded).toBe(0)
+    expect(result.warnings.join(' ')).toMatch(/not a valid jpeg/)
+  })
+
+  it('retries a rate limit, which is an instruction to wait rather than a refusal', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    let attempts = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempts += 1
+        if (attempts === 1) throw new EtsyApiError(429, 'rate limit exceeded')
+        return undefined
+      }),
+    })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(result.images_uploaded).toBe(1)
+    expect(result.warnings).toEqual([])
+  })
+
+  it('gives up after three attempts and says so, rather than failing silently', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const upload = vi.fn(async () => {
+      throw transient()
+    })
+    const gw = fakeGateway({ uploadListingImage: upload })
+
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(upload).toHaveBeenCalledTimes(3)
+    expect(result.images_uploaded).toBe(0)
+    expect(result.warnings.join(' ')).toMatch(/failed to upload/)
+  })
+})
+
+/* Retrying narrows the window; it does not close it. Five photos across four
+   live listings were lost this way and never went back, because the photo loop
+   only ran when the listing was being created. Every update push since has
+   said so in its own warnings, thirteen times: "update mode: images not
+   re-pushed".
+
+   The fix is the one the staging path already uses. A staged scene records
+   etsy_uploaded_at when it lands, so a failure is visible and the work can be
+   picked up again. Photos had no such record, so nothing could tell a photo
+   that went up from one that never did. */
+describe('a photo that never reached the listing goes up on the next push', () => {
+  it('records which photos actually landed', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red'] })
+    let attempt = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempt += 1
+        if (attempt === 1) throw new EtsyApiError(400, 'nope')
+        return undefined
+      }),
+    })
+    await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+
+    const { photosForDesign } = await import('@/lib/catalog/catalog')
+    const stamped = photosForDesign(db, designId).map((p) => p.etsy_uploaded_at !== null)
+    // The one Etsy refused carries no stamp; the one it took does.
+    expect(stamped).toEqual([false, true])
+  })
+
+  it('sends only the photos with no record, on a listing that already exists', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red', 'green'] })
+    let attempt = 0
+    const first = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempt += 1
+        if (attempt === 2) throw new EtsyApiError(400, 'nope')
+        return undefined
+      }),
+    })
+    const one = await pushDraftToEtsy(db, first, designId, dataDir, { backoffMs: 0 })
+    expect(one.created).toBe(true)
+    expect(one.images_uploaded).toBe(2)
+
+    const upload = vi.fn(async () => undefined)
+    const two = await pushDraftToEtsy(db, fakeGateway({ uploadListingImage: upload }), designId, dataDir, {
+      backoffMs: 0,
+    })
+    expect(two.created).toBe(false)
+    expect(two.images_uploaded).toBe(1)
+    expect(upload).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends nothing when every photo is already recorded', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue', 'red'] })
+    await pushDraftToEtsy(db, fakeGateway(), designId, dataDir, { backoffMs: 0 })
+
+    const upload = vi.fn(async () => undefined)
+    const result = await pushDraftToEtsy(db, fakeGateway({ uploadListingImage: upload }), designId, dataDir, {
+      backoffMs: 0,
+    })
+    expect(upload).not.toHaveBeenCalled()
+    expect(result.images_uploaded).toBe(0)
+  })
+})
+
+/* isTransient decides whether a failed upload gets asked again, so what it
+   treats as transient is the whole judgment. Retrying everything was too
+   generous: a bug in our own code and an abort the owner asked for are not the
+   network, and asking twice more only makes them slower. */
+describe('what counts as worth asking again', () => {
+  const codeErr = (code: string) => Object.assign(new Error(code), { code })
+
+  it.each([
+    ['a dropped fetch', new TypeError('fetch failed')],
+    ['a reset socket', codeErr('ECONNRESET')],
+    ['a name that would not resolve', codeErr('ENOTFOUND')],
+    ['an undici socket error carried on cause', Object.assign(new Error('x'), { cause: codeErr('UND_ERR_SOCKET') })],
+    ['etsy being down', new EtsyApiError(503, 'unavailable')],
+    ['etsy asking us to wait', new EtsyApiError(429, 'slow down')],
+  ])('retries %s', (_label, error) => expect(isTransient(error)).toBe(true))
+
+  it.each([
+    ['a refused image', new EtsyApiError(400, 'not a jpeg')],
+    ['an expired token', new EtsyApiError(401, 'unauthorized')],
+    ['a listing that is gone', new EtsyApiError(404, 'no such listing')],
+    ['an abort we asked for', Object.assign(new Error('aborted'), { name: 'AbortError' })],
+    ['a bug in our own code', new Error('cannot read properties of undefined')],
+    ['something that is not an error at all', 'boom'],
+  ])('does not retry %s', (_label, error) => expect(isTransient(error)).toBe(false))
+})
+
+/* A 429 is an instruction with a duration attached. Waiting less than Etsy
+   asked spends the remaining attempts hearing the same answer. */
+describe('a rate limit that names its own wait', () => {
+  it('waits at least as long as Etsy asked', async () => {
+    const { db, dataDir } = setup()
+    const designId = await seed(db, dataDir, { colorways: ['blue'] })
+    const waits: number[] = []
+    const started = Date.now()
+    let attempts = 0
+    const gw = fakeGateway({
+      uploadListingImage: vi.fn(async () => {
+        attempts += 1
+        waits.push(Date.now() - started)
+        if (attempts === 1) throw new EtsyApiError(429, 'slow down', 120)
+        return undefined
+      }),
+    })
+    // backoffMs 0 would normally retry instantly; the header has to win.
+    const result = await pushDraftToEtsy(db, gw, designId, dataDir, { backoffMs: 0 })
+    expect(result.images_uploaded).toBe(1)
+    expect(waits[1]).toBeGreaterThanOrEqual(100)
+  })
+
+  it('reads the wait off the response, and survives one without headers', async () => {
+    const { retryAfterMs } = await import('@/lib/etsy/gateway')
+    expect(retryAfterMs({ headers: new Headers({ 'retry-after': '3' }) })).toBe(3000)
+    expect(retryAfterMs({ headers: new Headers() })).toBeNull()
+    // The error path must not throw while building an error.
+    expect(retryAfterMs({})).toBeNull()
+    expect(retryAfterMs(null)).toBeNull()
   })
 })

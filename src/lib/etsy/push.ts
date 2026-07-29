@@ -3,15 +3,17 @@ import path from 'node:path'
 import type { Db } from '@/lib/catalog/db'
 import {
   getDesignDetail,
-  getPhotoPath,
   logEvent,
   markDesignPiecesListed,
+  markPhotoUploaded,
+  photosForDesign,
   setDesignEtsyListingId,
 } from '@/lib/catalog/catalog'
 import { latestDraftForDesign } from '@/lib/catalog/drafts'
 import { markVideoUploaded, videoForDesign } from '@/lib/catalog/videos'
 import { prepareImage, PREPARED_MAX_EDGE, PREPARED_QUALITY } from '@/lib/images/prepare'
 import type { EtsyGateway } from './gateway'
+import { withRetry } from './retry'
 import { EtsyApiError } from './gateway'
 import type { InventoryBody } from './types'
 import { pickTaxonomyNode } from './taxonomy'
@@ -58,7 +60,8 @@ export async function pushDraftToEtsy(
   db: Db,
   gateway: EtsyGateway,
   designId: number,
-  dataDir: string
+  dataDir: string,
+  opts: { backoffMs?: number } = {}
 ): Promise<PushResult> {
   const detail = getDesignDetail(db, designId)
   if (!detail) throw new Error(`design ${designId} not found`)
@@ -145,22 +148,6 @@ export async function pushDraftToEtsy(
     created = true
     setDesignEtsyListingId(db, designId, listingId)
 
-    const photos = detail.pieces
-      .flatMap((p) => p.photos.map((ph) => ({ piece_id: p.piece_id, photo_id: ph.photo_id, position: ph.position })))
-      .slice(0, 10)
-    for (const [index, photo] of photos.entries()) {
-      try {
-        const src = getPhotoPath(db, photo.photo_id)
-        if (!src) continue
-        const prepared = path.join(dataDir, 'prepared', String(photo.piece_id), `${photo.position}.jpg`)
-        await prepareImage(src, prepared, { maxEdge: PREPARED_MAX_EDGE, quality: PREPARED_QUALITY })
-        await gateway.uploadListingImage(me.shop_id, listingId, await readFile(prepared), path.basename(prepared), index + 1)
-        imagesUploaded += 1
-      } catch (err) {
-        warnings.push(`image ${photo.photo_id} failed to upload: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    }
-
   } else {
     await gateway.updateListing(me.shop_id, listingId, {
       title: draft.title,
@@ -177,6 +164,30 @@ export async function pushDraftToEtsy(
     })
   }
 
+  /* On create and on update both. This used to run only when the listing was
+     being created, so a photo whose upload dropped was never sent again and
+     every later push reported that images were not re-pushed. etsy_uploaded_at
+     is what makes the second push able to tell the difference: send the photos
+     with no record and leave the rest alone, which also means a photo the owner
+     removed on Etsy is not quietly put back. */
+  const photos = photosForDesign(db, designId).slice(0, 10)
+  for (const [index, photo] of photos.entries()) {
+    if (photo.etsy_uploaded_at) continue
+    try {
+      const prepared = path.join(dataDir, 'prepared', String(photo.piece_id), `${photo.position}.jpg`)
+      await prepareImage(photo.file_path, prepared, { maxEdge: PREPARED_MAX_EDGE, quality: PREPARED_QUALITY })
+      const bytes = await readFile(prepared)
+      await withRetry(
+        () => gateway.uploadListingImage(me.shop_id, listingId!, bytes, path.basename(prepared), index + 1),
+        { backoffMs: opts.backoffMs }
+      )
+      markPhotoUploaded(db, photo.photo_id)
+      imagesUploaded += 1
+    } catch (err) {
+      warnings.push(`image ${photo.photo_id} failed to upload: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   // Sent once, on both create and update, and only if this design has a clip
   // that has not gone up. Etsy keeps one video per listing and a second upload
   // replaces the first, so re-sending on every push would burn the upload to
@@ -185,11 +196,10 @@ export async function pushDraftToEtsy(
   const clip = videoForDesign(db, designId)
   if (clip && !clip.etsy_uploaded_at) {
     try {
-      await gateway.uploadListingVideo(
-        me.shop_id,
-        listingId,
-        await readFile(clip.file_path),
-        path.basename(clip.file_path)
+      const clipBytes = await readFile(clip.file_path)
+      await withRetry(
+        () => gateway.uploadListingVideo(me.shop_id, listingId!, clipBytes, path.basename(clip.file_path)),
+        { backoffMs: opts.backoffMs }
       )
       markVideoUploaded(db, clip.video_id)
       videoUploaded = true
