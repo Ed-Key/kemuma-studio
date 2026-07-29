@@ -96,7 +96,9 @@ export async function pushToEtsyAction(_prev: ActionResult | null, formData: For
       ok: true,
       message: res.created
         ? 'Created a draft listing on Etsy.'
-        : 'Updated the Etsy listing. Photos are left alone on an update.',
+        : res.images_uploaded > 0
+          ? `Updated the Etsy listing, and sent ${res.images_uploaded} photo${res.images_uploaded === 1 ? '' : 's'} that had not reached it.`
+          : 'Updated the Etsy listing. Every photo was already on it.',
       detail: `listing ${res.listing_id} · ${res.images_uploaded} images · ${res.attributes_set} attributes${
         res.video_uploaded ? ' · video' : ''
       }${res.variations_set ? ' · variations set' : ''}`,

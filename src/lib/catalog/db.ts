@@ -201,41 +201,67 @@ function migrate(db: Db): void {
      one whose upload dropped, so a second push sent none of them and five
      photos across four live listings stayed missing.
 
-     The backfill has to assume every photo of an existing listing is already
-     up, or the first push after this would duplicate nineteen listings' worth
-     of images. The exceptions are named in the push events: a failed upload
-     wrote "image <id> failed to upload" into the warnings at the time, so the
-     catalogue already knows exactly which ones to leave unstamped. */
+     Three things this backfill has to get right, because getting them wrong
+     means duplicate images on a shop that takes real money.
+
+     It must assume a photo of an existing listing is already up, or the first
+     push after this would re-send nineteen listings' worth. But only the first
+     ten, because that is all the old uploader ever attempted; four designs
+     carry more than that and those extra photos were never sent, so claiming
+     they were would be a lie that hides them forever. The ten is written out
+     rather than read from the uploader's cap on purpose: it records what was
+     attempted at the time, and it must not move if that cap is ever raised.
+
+     The exceptions are named in the push events, which wrote "image <id>
+     failed to upload" into the warnings at the time. Photo ids have been
+     reused across catalogue rebuilds, so a warning only clears a photo that
+     still belongs to the design the warning was about.
+
+     All of it commits together. The column is the only marker that this ran,
+     so a half-finished migration that still left the column behind would never
+     be retried and would take the duplicates with it. */
   if (!photoCols.includes('etsy_uploaded_at')) {
-    db.exec('ALTER TABLE photos ADD COLUMN etsy_uploaded_at TEXT')
-    db.exec(`
-      UPDATE photos SET etsy_uploaded_at = datetime('now')
-      WHERE piece_id IN (
-        SELECT p.piece_id FROM pieces p JOIN designs d ON d.design_id = p.design_id
-        WHERE d.etsy_listing_id IS NOT NULL
-      )
-    `)
-    const failed = new Set<number>()
+    const failures: Array<{ designId: number; photoId: number }> = []
     const pushes = db
       .prepare("SELECT payload FROM events WHERE type = 'etsy.pushed'")
       .all() as Array<{ payload: string }>
     for (const row of pushes) {
-      let warnings: unknown
+      let payload: { design_id?: unknown; warnings?: unknown }
       try {
-        warnings = (JSON.parse(row.payload) as { warnings?: unknown }).warnings
+        payload = JSON.parse(row.payload)
       } catch {
         continue
       }
-      if (!Array.isArray(warnings)) continue
-      for (const warning of warnings) {
+      const designId = payload.design_id
+      if (typeof designId !== 'number' || !Array.isArray(payload.warnings)) continue
+      for (const warning of payload.warnings) {
         const hit = /^image (\d+) failed to upload/.exec(String(warning))
-        if (hit) failed.add(Number(hit[1]))
+        if (hit) failures.push({ designId, photoId: Number(hit[1]) })
       }
     }
-    if (failed.size > 0) {
-      const holes = [...failed].map(() => '?').join(',')
-      db.prepare(`UPDATE photos SET etsy_uploaded_at = NULL WHERE photo_id IN (${holes})`).run(...failed)
-    }
+
+    db.transaction(() => {
+      db.exec('ALTER TABLE photos ADD COLUMN etsy_uploaded_at TEXT')
+      db.exec(`
+        UPDATE photos SET etsy_uploaded_at = datetime('now')
+        WHERE photo_id IN (
+          SELECT photo_id FROM (
+            SELECT ph.photo_id,
+                   ROW_NUMBER() OVER (PARTITION BY p.design_id ORDER BY p.piece_id, ph.position) AS rn
+            FROM pieces p
+            JOIN photos ph ON ph.piece_id = p.piece_id
+            JOIN designs d ON d.design_id = p.design_id
+            WHERE d.etsy_listing_id IS NOT NULL
+          ) WHERE rn <= 10
+        )
+      `)
+      const clear = db.prepare(`
+        UPDATE photos SET etsy_uploaded_at = NULL
+        WHERE photo_id = ?
+          AND piece_id IN (SELECT piece_id FROM pieces WHERE design_id = ?)
+      `)
+      for (const f of failures) clear.run(f.photoId, f.designId)
+    })()
   }
   const intakeCols = (db.prepare('PRAGMA table_info(intakes)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!intakeCols.includes('facts_json')) {

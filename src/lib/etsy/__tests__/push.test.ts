@@ -10,6 +10,7 @@ import { createDraft, approveDraft } from '@/lib/catalog/drafts'
 import { addVideo } from '@/lib/catalog/videos'
 import { buildInventoryProducts, pushDraftToEtsy } from '@/lib/etsy/push'
 import { EtsyApiError, type EtsyGateway } from '@/lib/etsy/gateway'
+import { isTransient } from '@/lib/etsy/retry'
 
 const DRAFT = {
   title: 'Vintage Kenyan Soapstone Coaster Set',
@@ -522,4 +523,30 @@ describe('a photo that never reached the listing goes up on the next push', () =
     expect(upload).not.toHaveBeenCalled()
     expect(result.images_uploaded).toBe(0)
   })
+})
+
+/* isTransient decides whether a failed upload gets asked again, so what it
+   treats as transient is the whole judgment. Retrying everything was too
+   generous: a bug in our own code and an abort the owner asked for are not the
+   network, and asking twice more only makes them slower. */
+describe('what counts as worth asking again', () => {
+  const codeErr = (code: string) => Object.assign(new Error(code), { code })
+
+  it.each([
+    ['a dropped fetch', new TypeError('fetch failed')],
+    ['a reset socket', codeErr('ECONNRESET')],
+    ['a name that would not resolve', codeErr('ENOTFOUND')],
+    ['an undici socket error carried on cause', Object.assign(new Error('x'), { cause: codeErr('UND_ERR_SOCKET') })],
+    ['etsy being down', new EtsyApiError(503, 'unavailable')],
+    ['etsy asking us to wait', new EtsyApiError(429, 'slow down')],
+  ])('retries %s', (_label, error) => expect(isTransient(error)).toBe(true))
+
+  it.each([
+    ['a refused image', new EtsyApiError(400, 'not a jpeg')],
+    ['an expired token', new EtsyApiError(401, 'unauthorized')],
+    ['a listing that is gone', new EtsyApiError(404, 'no such listing')],
+    ['an abort we asked for', Object.assign(new Error('aborted'), { name: 'AbortError' })],
+    ['a bug in our own code', new Error('cannot read properties of undefined')],
+    ['something that is not an error at all', 'boom'],
+  ])('does not retry %s', (_label, error) => expect(isTransient(error)).toBe(false))
 })
