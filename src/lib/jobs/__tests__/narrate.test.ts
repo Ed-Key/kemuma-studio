@@ -43,7 +43,7 @@ describe('describeStep', () => {
     expect(describeStep({ kind: 'writing', section: 'product_lock' })).toBe(
       'writing the product lock'
     )
-    expect(describeStep({ kind: 'writing', section: 'subject_and_count' })).toBe(
+    expect(describeStep({ kind: 'writing', section: 'arrangement' })).toBe(
       'writing what is in frame'
     )
   })
@@ -59,6 +59,23 @@ describe('describeStep', () => {
     expect(describeStep({ kind: 'phase', text: 'generating 4 scenes' })).toBe('generating 4 scenes')
     expect(describeStep({ kind: 'phase', text: '   ' })).toBeNull()
   })
+
+  /* The rail used to say only that the plan was rejected again, because the
+     narrator sees tool calls and never their results. Eight runs looped in
+     production and not one recorded which rule fired. */
+  it('says which rule rejected the plan, not just that one did', () => {
+    expect(
+      describeStep({
+        kind: 'rejected',
+        reason: 'SUBJECT AND COUNT must state exact piece counts using the word "exactly"',
+      })
+    ).toBe('the plan was rejected: SUBJECT AND COUNT must state exact piece counts using the word "exactly"')
+  })
+
+  it('reports when the director has given up rather than looping on silently', () => {
+    expect(describeStep({ kind: 'rejected', reason: 'x', gaveUp: true })).toMatch(/gave up|could not/i)
+  })
+
 })
 
 describe('narrator', () => {
@@ -143,4 +160,34 @@ describe('narrator', () => {
       narrator(broken, jobId)({ kind: 'tool', name: 'view_design', input: {} })
     ).not.toThrow()
   })
+
+  /* The production catalogue has 590 tool_use rows and 13 text rows across the
+     eight runs that looped, and zero tool_result rows. The reason was produced
+     and thrown away every single time. This is the row that was missing. */
+  it('writes the rejection reason to the job log where it can be read later', () => {
+    const designId = createDesign(db, { family: 'trinket dish', name: 'Canoe Trinket Dish' })
+    const jobId = create(db, {
+      kind: 'director_turn',
+      design_id: designId,
+      title: 'Director · Canoe Trinket Dish',
+      destination: `/designs/${designId}/staging`,
+    })
+    const say = narrator(db, jobId)
+
+    say({ kind: 'tool', name: 'plan_batch', input: {} })
+    say({
+      kind: 'rejected',
+      reason: 'SUBJECT AND COUNT must state exact piece counts using the word "exactly"',
+    })
+
+    const rows = db
+      .prepare('SELECT log_type, content FROM job_logs WHERE job_id = ? ORDER BY rowid')
+      .all(jobId) as Array<{ log_type: string; content: string }>
+    const rejection = rows.find((r) => r.log_type === 'tool_result')
+
+    expect(rejection).toBeDefined()
+    expect(rejection!.content).toMatch(/exactly/)
+    expect(latestNarration(db, [jobId]).get(jobId)).toMatch(/the plan was rejected: /)
+  })
+
 })

@@ -5,6 +5,7 @@ import { listStagedForDesign, DESTINATIONS, REJECT_REASONS } from '@/lib/catalog
 import { listDimensionCardsForDesign } from '@/lib/catalog/dimcards'
 import { getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { scenesForFamily, SCENES } from '@/lib/staging/scenes'
+import { parsePendingPlan } from '@/lib/staging/plan'
 import ActionForm from '../../../components/ActionForm'
 import DesignHeader from '../../../components/DesignHeader'
 import JobArrival from '../../../components/JobArrival'
@@ -69,7 +70,12 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
   const dimCards = listDimensionCardsForDesign(db, Number(id))
   const chat = getChatForDesign(db, Number(id))
   const chatMessages: ChatMessage[] = chat ? JSON.parse(chat.messages_json) : []
-  const pendingPlan = chat?.pending_plan_json ? JSON.parse(chat.pending_plan_json) : null
+  // A plan written before counts replaced the free-text subject line still
+  // renders from scene and n alone, so it looked generatable and failed on the
+  // click. Read it the way the action does and offer to discard it instead.
+  const storedPlan = chat?.pending_plan_json ? parsePendingPlan(chat.pending_plan_json) : null
+  const pendingPlan = storedPlan?.ok ? storedPlan.plan : null
+  const stalePlanReason = storedPlan && !storedPlan.ok ? storedPlan.reason : null
 
   return (
     <div>
@@ -285,6 +291,18 @@ export default async function StagingPage({ params }: { params: Promise<{ id: st
             />
           </div>
         </ActionForm>
+        {stalePlanReason && (
+          <div className="plan-card stack-sm">
+            <div className="card-title">Planned batch</div>
+            <p className="muted">{stalePlanReason}</p>
+            <ActionForm action={discardPlanAction} className="action-row">
+              <input type="hidden" name="design_id" value={detail.design_id} />
+              <PendingSubmit pendingLabel="Discarding..." orbState="working">
+                Discard plan
+              </PendingSubmit>
+            </ActionForm>
+          </div>
+        )}
         {pendingPlan && (
           <div className="plan-card stack-sm">
             <div className="card-title">Planned batch</div>

@@ -246,6 +246,8 @@ export async function runPlannedBatch(
         model: imageGenerator.label,
         cost_usd: costPerImage,
         prompt_version: PROMPT_VERSION,
+        // The director's own answer, kept next to the prompt it produced.
+        plan_json: JSON.stringify(input.plan),
       })
     )
   }

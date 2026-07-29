@@ -9,6 +9,27 @@ import { StagingPlanSchema, validatePlan } from './plan'
 
 export type ToolResultContent = Array<{ type: 'text'; text: string } | ApiImageBlock>
 
+/* Per-run state, so the tool can tell a first refusal from a loop. Eight
+   director runs in the catalogue rejected their own plan over and over, worst
+   case thirteen times, because every refusal ended by inviting another try and
+   nothing counted. */
+export type AgentToolCtx = { designId: number; chatId: number; planRejections?: number }
+
+/* Retries offered, not rejections tolerated: the fourth refusal is the one that
+   stops asking. Three is enough to fix a fumbled field and not enough to burn
+   three minutes. Past this the run is not converging and saying "try again" is
+   the bug. */
+export const PLAN_RETRY_LIMIT = 3
+
+export function planRefusalReason(body: string): string {
+  const rules = body
+    .split('\n')
+    .filter((line) => line.startsWith('- '))
+    .map((line) => line.slice(2))
+    .join('; ')
+  return rules || body
+}
+
 export const AGENT_TOOLS = [
   {
     name: 'view_design',
@@ -51,17 +72,64 @@ export const AGENT_TOOLS = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        scene: { type: 'string' as const },
-        lighting: { type: 'string' as const },
-        subject_and_count: { type: 'string' as const },
-        composition: { type: 'string' as const },
-        product_lock: { type: 'string' as const },
-        extra_exclusions: { type: 'array' as const, items: { type: 'string' as const } },
-        size: { type: 'string' as const, enum: ['1536x1024', '1024x1536'] },
-        reference_photo_ids: { type: 'array' as const, items: { type: 'number' as const } },
-        n: { type: 'number' as const },
+        scene: {
+          type: 'string' as const,
+          description: 'The room, surface, mood and any props, described concretely. Props live here, not in counts.',
+        },
+        lighting: {
+          type: 'string' as const,
+          description:
+            "This scene's own light: direction, quality, colour temperature, and the contact shadows that ground the piece. The mandatory never-composited sentence is added for you, so do not write it.",
+        },
+        counts: {
+          type: 'array' as const,
+          description:
+            'The PRODUCT only, split into its distinct parts, with how many of each. A coaster set is [{"n":1,"what":"soapstone holder"},{"n":6,"what":"coasters"}]. Scenery and props do NOT go here. At most 4 entries. The count sentence is written for you.',
+          items: {
+            type: 'object' as const,
+            properties: {
+              n: { type: 'number' as const, description: 'How many of this part appear.' },
+              what: {
+                type: 'string' as const,
+                description:
+                  'A bare noun phrase, like "soapstone holder". No number, no article, and never the word "exactly".',
+              },
+            },
+            required: ['n', 'what'],
+            additionalProperties: false,
+          },
+        },
+        arrangement: {
+          type: 'string' as const,
+          description: 'How the product sits: what faces the camera, what is stacked or fanned, where props sit relative to it.',
+        },
+        composition: {
+          type: 'string' as const,
+          description: 'Framing and camera angle, citing the real dimensions so the piece is scaled correctly.',
+        },
+        product_lock: {
+          type: 'string' as const,
+          description:
+            'Only the identity-critical features actually visible in the photo: silhouette, carving, banding, veining, wear, asymmetries. The opening and closing lock sentences are added for you, so write only the middle.',
+        },
+        extra_exclusions: {
+          type: 'array' as const,
+          description: 'At most 4 extra things to ban, beyond the standard exclusions already added for you.',
+          items: { type: 'string' as const },
+        },
+        size: {
+          type: 'string' as const,
+          enum: ['1536x1024', '1024x1536'],
+          description: 'Landscape for scenes, portrait for tall pieces.',
+        },
+        reference_photo_ids: {
+          type: 'array' as const,
+          description: 'At most 3 photo ids of THIS design, best view first.',
+          items: { type: 'number' as const },
+        },
+        n: { type: 'number' as const, description: 'How many images to generate, 1 to 4.' },
       },
-      required: ['scene', 'lighting', 'subject_and_count', 'composition', 'product_lock', 'extra_exclusions', 'size', 'reference_photo_ids'],
+      required: ['scene', 'lighting', 'counts', 'arrangement', 'composition', 'product_lock', 'extra_exclusions', 'size', 'reference_photo_ids'],
       additionalProperties: false,
     },
   },
@@ -73,7 +141,7 @@ function text(t: string): ToolResultContent {
 
 export async function executeAgentTool(
   db: Db,
-  ctx: { designId: number; chatId: number },
+  ctx: AgentToolCtx,
   name: string,
   input: unknown
 ): Promise<ToolResultContent> {
@@ -155,10 +223,24 @@ export async function executeAgentTool(
       return text('staging note saved')
     }
     case 'plan_batch': {
+      const refuse = (reasons: string[]): ToolResultContent => {
+        ctx.planRejections = (ctx.planRejections ?? 0) + 1
+        const why = reasons.map((r) => `- ${r}`).join('\n')
+        if (ctx.planRejections > PLAN_RETRY_LIMIT) {
+          return text(
+            `plan rejected ${ctx.planRejections} times. Stop calling plan_batch and tell the owner the batch could not be planned, quoting this:\n${why}`
+          )
+        }
+        return text(`plan rejected, fix and call plan_batch again:\n${why}`)
+      }
       const parsed = StagingPlanSchema.safeParse(input)
-      if (!parsed.success) return text(`plan rejected: ${parsed.error.issues.map((i) => i.message).join('; ')}`)
+      // Path first. A bare "expected array to have >=1 items" does not tell the
+      // writer which field it fumbled, which is how a refusal turns into a loop.
+      if (!parsed.success) {
+        return refuse(parsed.error.issues.map((i) => `${i.path.join('.') || 'plan'}: ${i.message}`))
+      }
       const errors = validatePlan(db, ctx.designId, parsed.data)
-      if (errors.length > 0) return text(`plan rejected, fix and call plan_batch again:\n- ${errors.join('\n- ')}`)
+      if (errors.length > 0) return refuse(errors)
       setPendingPlan(db, ctx.chatId, JSON.stringify(parsed.data))
       return text('plan saved. Tell the user what you set up; they will click Generate to run it.')
     }

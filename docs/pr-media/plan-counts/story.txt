@@ -1,0 +1,17 @@
+
+────────────────────────────────────────────────────────────────────────
+batch 5  chat  2026-07-27 21:34:01  prompt 433732d
+
+  1. what the director asked for
+      counts: 1 sitting cat figure
+      arrangement: The cat figure sits upright and squarely on the windowsill, front three-quarter view turned very slightly to camera-left so both the face and the spot
+      scene: Photorealistic editorial product photograph on a painted white-oak windowsill in a quiet home, soft ivory plaster wall and a sheer linen curtain edge
+      lighting: Warm daylight enters from the window directly behind and slightly to the left of camera-left, diffused by the sheer curtain into a soft directional wa
+
+  2. the prompt the assembler built
+      SUBJECT AND COUNT: Image 1 is the only product reference. Show exactly 1 sitting cat figure, appearing exactly once. The cat figure sits upright and squarely on the windowsill, front three-quarter view turned
+      COMPOSITION: Portrait orientation, camera at a near eye-level height just slightly above the sill, straight-on front three-quarter view matching the reference photos. The figure stands 6 inches tall by 3
+      PRODUCT LOCK: Use the exact physical product from Image 1. A tall slim upright cat carved from soapstone, narrow column-like body tapering slightly to a wider flat base, two sharply pointed triangular ear
+
+  3. what came back
+      chat-1785188041408-0.png           3.1 MB       not judged yet

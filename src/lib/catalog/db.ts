@@ -100,6 +100,7 @@ function migrate(db: Db): void {
       reject_reason TEXT,
       reject_note TEXT,
       prompt_version TEXT,
+      plan_json TEXT,
       model TEXT NOT NULL,
       cost_usd REAL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -177,6 +178,12 @@ function migrate(db: Db): void {
   }
   if (!stagedCols.includes('prompt_version')) {
     db.exec('ALTER TABLE staged_images ADD COLUMN prompt_version TEXT')
+  }
+  // What the director asked for, kept beside what was actually sent. The
+  // assembled prompt alone cannot tell you whether a bad image came from a bad
+  // plan or from the assembler mangling a good one.
+  if (!stagedCols.includes('plan_json')) {
+    db.exec('ALTER TABLE staged_images ADD COLUMN plan_json TEXT')
   }
   const designCols = (db.prepare('PRAGMA table_info(designs)').all() as Array<{ name: string }>).map((c) => c.name)
   if (!designCols.includes('published_at')) {

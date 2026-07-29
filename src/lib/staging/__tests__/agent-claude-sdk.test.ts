@@ -7,7 +7,7 @@ import { addPhoto, addPiece, createDesign, listEvents } from '@/lib/catalog/cata
 import { getChatForDesign, getOrCreateChatForDesign } from '@/lib/catalog/chats'
 import { openDb, type Db } from '@/lib/catalog/db'
 import { AGENT_TOOLS } from '@/lib/staging/agent-tools'
-import { runAgentTurnViaClaudeSdk } from '@/lib/staging/agent-claude-sdk'
+import { type AgentStep, runAgentTurnViaClaudeSdk } from '@/lib/staging/agent-claude-sdk'
 
 type QueryParams = Parameters<typeof query>[0]
 
@@ -205,7 +205,7 @@ describe('runAgentTurnViaClaudeSdk', () => {
       // its exclusions, and a plain text search read that as arriving back at
       // the product lock, so the rail showed it walking backwards through its
       // own plan.
-      const steps: Array<{ section?: string }> = []
+      const steps: AgentStep[] = []
       await runAgentTurnViaClaudeSdk(
         db,
         { designId, chatId, userText: 'stage it' },
@@ -219,14 +219,14 @@ describe('runAgentTurnViaClaudeSdk', () => {
           onStep: (step) => steps.push(step),
         }
       )
-      const sections = steps.filter((s) => s.section).map((s) => s.section)
+      const sections = steps.flatMap((s) => (s.kind === 'writing' ? [s.section] : []))
       expect(sections).toEqual(['product_lock', 'extra_exclusions', 'n'])
     })
 
     it('waits for a key to finish arriving before naming it', async () => {
       // Field names stream in pieces like everything else, and half of one is
       // not a field name.
-      const steps: Array<{ section?: string }> = []
+      const steps: AgentStep[] = []
       await runAgentTurnViaClaudeSdk(
         db,
         { designId, chatId, userText: 'stage it' },
@@ -235,7 +235,7 @@ describe('runAgentTurnViaClaudeSdk', () => {
           onStep: (step) => steps.push(step),
         }
       )
-      expect(steps.filter((s) => s.section).map((s) => s.section)).toEqual(['product_lock'])
+      expect(steps.flatMap((s) => (s.kind === 'writing' ? [s.section] : []))).toEqual(['product_lock'])
     })
   })
 })

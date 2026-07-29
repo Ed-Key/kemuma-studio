@@ -10,13 +10,22 @@ import { getDesignDetail, logEvent } from '@/lib/catalog/catalog'
 import { appendChatMessages, getChatForDesign, type ChatMessage } from '@/lib/catalog/chats'
 import { claudeSubscriptionEnv, type ClaudeSdkQueryFn } from '@/lib/claude-sdk'
 import { computeCostUsd } from '@/lib/writer/prices'
-import { AGENT_TOOLS, executeAgentTool } from './agent-tools'
+import {
+  AGENT_TOOLS,
+  executeAgentTool,
+  planRefusalReason,
+  PLAN_RETRY_LIMIT,
+  type AgentToolCtx,
+} from './agent-tools'
 import { buildAgentSystemPrompt } from './agent'
 
 type JsonProperty = {
-  type: 'string' | 'number' | 'array'
+  type: 'string' | 'number' | 'array' | 'object'
   enum?: readonly string[]
   items?: JsonProperty
+  properties?: Record<string, JsonProperty>
+  required?: readonly string[]
+  description?: string
 }
 
 type JsonObjectSchema = {
@@ -24,13 +33,29 @@ type JsonObjectSchema = {
   required?: readonly string[]
 }
 
+/* Field descriptions are the only place the model is told the rules of a field,
+   and they were being dropped on the way in: every describe() in plan.ts
+   reached nothing. A writer that has not been told a list caps at four cannot
+   be blamed for sending five. */
 function zodField(schema: JsonProperty): z.ZodType {
+  const described = (t: z.ZodType) => (schema.description ? t.describe(schema.description) : t)
   if (schema.enum && schema.enum.length > 0) {
-    return z.enum(schema.enum as [string, ...string[]])
+    return described(z.enum(schema.enum as [string, ...string[]]))
   }
-  if (schema.type === 'string') return z.string()
-  if (schema.type === 'number') return z.number()
-  if (schema.type === 'array' && schema.items) return z.array(zodField(schema.items))
+  if (schema.type === 'string') return described(z.string())
+  if (schema.type === 'number') return described(z.number())
+  /* Deliberately unbounded. The SDK checks arguments against this schema and
+     never calls the handler when they fail, so every limit stated here is a
+     rejection the counter cannot count and the rail cannot show. Both live runs
+     of the fixed director over-supplied these arrays, which is exactly the case
+     that used to be settled up here and vanish. The caps live in
+     StagingPlanSchema, and the descriptions tell the model what they are. */
+  if (schema.type === 'array' && schema.items) return described(z.array(zodField(schema.items)))
+  // Nested objects arrived with structured counts: the plan asks for a list of
+  // {n, what} rather than a sentence, so the shape has to survive the trip.
+  if (schema.type === 'object' && schema.properties) {
+    return described(z.object(zodShape(schema as unknown as JsonObjectSchema)))
+  }
   throw new Error(`unsupported staging tool schema type "${schema.type}"`)
 }
 
@@ -67,7 +92,15 @@ async function* agentPrompt(messages: ChatMessage[], userText: string) {
   }
 }
 
-function stagingMcpServer(db: Db, input: { designId: number; chatId: number }) {
+function stagingMcpServer(
+  db: Db,
+  input: { designId: number; chatId: number },
+  onStep: (step: AgentStep) => void = () => {}
+) {
+  /* One context for the whole run, not one per call. The rejection count lives
+     on it, and a fresh object per call would reset the counter every time and
+     restore the loop this exists to stop. */
+  const toolCtx: AgentToolCtx = { designId: input.designId, chatId: input.chatId }
   return createSdkMcpServer({
     name: 'kemuma-staging',
     version: '1.0.0',
@@ -77,12 +110,18 @@ function stagingMcpServer(db: Db, input: { designId: number; chatId: number }) {
         agentTool.description,
         zodShape(agentTool.input_schema as unknown as JsonObjectSchema),
         async (args) => {
-          const result = await executeAgentTool(
-            db,
-            { designId: input.designId, chatId: input.chatId },
-            agentTool.name,
-            args
-          )
+          const before = toolCtx.planRejections ?? 0
+          const result = await executeAgentTool(db, toolCtx, agentTool.name, args)
+          const after = toolCtx.planRejections ?? 0
+          if (after > before) {
+            const said = result.find((b) => b.type === 'text')
+            const body = said && 'text' in said ? said.text : ''
+            onStep({
+              kind: 'rejected',
+              reason: planRefusalReason(body),
+              gaveUp: after > PLAN_RETRY_LIMIT,
+            })
+          }
           return {
             content: result.map((block) =>
               block.type === 'text'
@@ -109,12 +148,14 @@ export type AgentStep =
   | { kind: 'tool'; name: string; input: unknown }
   | { kind: 'say'; text: string }
   | { kind: 'writing'; section: string }
+  | { kind: 'rejected'; reason: string; gaveUp?: boolean }
   | { kind: 'done'; turns: number }
 
 const PLAN_SECTIONS = new Set([
   'scene',
   'lighting',
-  'subject_and_count',
+  'counts',
+  'arrangement',
   'composition',
   'product_lock',
   'extra_exclusions',
@@ -220,7 +261,7 @@ export async function runAgentTurnViaClaudeSdk(
       allowDangerouslySkipPermissions: true,
       tools: [],
       allowedTools,
-      mcpServers: { staging: stagingMcpServer(db, input) },
+      mcpServers: { staging: stagingMcpServer(db, input, step) },
       // Not the same 8 as runAgentTurn's MAX_TURNS, which this was copied from.
       // There one iteration meant one model reply that could fire several tools
       // at once; here a turn is a single round trip. The mandated process is
