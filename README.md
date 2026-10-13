@@ -5,16 +5,18 @@ a real Etsy shop: drafted copy, a price argued against the shop's own
 comparables, marketing images generated and reviewed one at a time, and the
 listing pushed with its attributes, colorway variations and stock.
 
-It runs one shop, daily, on real inventory and real money. 19 listings live.
+Portfolio project. The shop is currently offline and the project is idle. The
+demo records the earlier live workflow: one shop, run daily on real inventory
+and real money, with 19 live listings at the time.
 
 https://github.com/user-attachments/assets/cfdf86fa-12eb-4729-8e8d-04f2754d43ea
 
-The full run with the waiting compressed: a carving photographed on a phone
-becomes a catalogued design, agents write the listing and stage product scenes,
-and it ends on the live shop. Three and a half minutes, no audio.
+The recorded live workflow with the waiting compressed: a carving photographed
+on a phone becomes a catalogued design, agents write the listing and stage
+product scenes, and it ends on the live shop. Three and a half minutes, no audio.
 
 The carvings are vintage soapstone, hand-carved by my grandfather and grandmother
-in Tabaka, Kisii, Kenya in the 1990s, and sold at
+in Tabaka, Kisii, Kenya in the 1990s, and previously sold at
 [Kemuma Carvings](https://www.etsy.com/shop/KemumaCarvings).
 
 ## What is measured
@@ -46,9 +48,9 @@ selection instead.
 
 ## One shop's tool
 
-This runs one shop, daily, on its real inventory. It is not packaged for anyone
-else to install. The judgment in it is specific to Kisii soapstone and lives in a
-handful of files:
+This was built to run one shop, daily, on its real inventory. It is not packaged
+for anyone else to install. The judgment in it is specific to Kisii soapstone
+and lives in a handful of files:
 
 - `src/lib/writer/prompt.ts`: the provenance facts, the voice rules, and the
   description structure every listing follows.
