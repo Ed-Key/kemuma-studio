@@ -5,7 +5,7 @@ a real Etsy shop: drafted copy, a price argued against the shop's own
 comparables, marketing images generated and reviewed one at a time, and the
 listing pushed with its attributes, colorway variations and stock.
 
-It runs one shop, daily, on real inventory and real money. 19 listings live.
+It ran one shop, daily, on real inventory and real money. 19 listings were live.
 
 https://github.com/user-attachments/assets/de9015c8-3080-4c82-a189-8b900c4d8e68
 
@@ -46,7 +46,7 @@ selection instead.
 
 ## One shop's tool
 
-This runs one shop, daily, on its real inventory. It is not packaged for anyone
+This ran one shop, daily, on its real inventory. It is not packaged for anyone
 else to install. The judgment in it is specific to Kisii soapstone and lives in a
 handful of files:
 
